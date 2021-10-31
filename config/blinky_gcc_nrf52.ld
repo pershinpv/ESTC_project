@@ -5,6 +5,13 @@ GROUP(-lgcc -lc -lnosys)
 
 MEMORY
 {
+  /*Original ld params*/
+
+  /*FLASH (rx) : ORIGIN = 0x1c000, LENGTH = 0x64000
+  RAM (rwx) :  ORIGIN = 0x20001198, LENGTH = 0x1ee68*/
+
+  /*Modified ld params*/
+
   FLASH (rx) : ORIGIN = 0x1000, LENGTH = 0xdf000
   RAM (rwx) :  ORIGIN = 0x20000008, LENGTH = 0x3fff8
 }
