@@ -53,9 +53,8 @@
 #include "nrf_delay.h"
 #include "boards.h"
 
-#include <math.h>
-
-#define DEVICE_ID 6596
+#define DEVICE_ID 6596      //nRF dongle ID
+#define LED_TIME 400        //LED switch on / swich off time, ms
 
 /**
  * @brief Function for application main entry.
@@ -65,19 +64,30 @@ int main(void)
     /* Configure board. */
     bsp_board_init(BSP_INIT_LEDS);
 
-    /* Toggle LEDs. */
+    /* DEVICE_ID digit capacity determination */
+
+    int digits = 1;     //DEVICE_ID digit capacity
+    int devtmp = DEVICE_ID;
+    int digtmp = digits;
+
+    while(devtmp /= 10)
+        digits *= 10;
+
+    /* Toggle LEDs as DEVICE_ID */
     while (true)
     {
-        int devtmp = DEVICE_ID;
+        devtmp = DEVICE_ID;
+        digtmp = digits;
 
         for (int i = 0; i < LEDS_NUMBER; i++)
         {
-            for (int j = 0; j < devtmp / (int) pow(10, LEDS_NUMBER - 1 - i) * 2; j++)
+            for (int j = 0; j < devtmp / digtmp * 2; j++)
             {
                 bsp_board_led_invert(i);
-                nrf_delay_ms(400);
+                nrf_delay_ms(LED_TIME);
             }
-            devtmp %= (int) pow(10, LEDS_NUMBER - 1 - i);
+            devtmp %= digtmp;
+            digtmp /= 10;
         }
     }
 }
