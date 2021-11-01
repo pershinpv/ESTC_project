@@ -1,0 +1,3 @@
+[submodule "ESTC-NSDK"]
+	path = ESTC-NSDK
+	url = https://github.com/Diadlo/ESTC-NSDK
