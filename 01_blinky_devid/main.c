@@ -22,6 +22,16 @@
 #define BUTTON_PIN_NUMBERS { BUTTON1 }
 #define BUTTON_PUSH_STATE 0                //GPIO port state for PUSH BUTTON
 
+uint32_t led_pins[] = LED_PIN_NUMBERS;
+uint32_t button_pins[] = BUTTON_PIN_NUMBERS;
+
+struct blink_state
+{
+    uint32_t id_number;
+    uint32_t led_number;
+    uint32_t left_time_ms;
+};
+
 uint32_t digit_capacity(uint32_t numeric)
 {
     uint32_t capacity = 1;
@@ -30,7 +40,7 @@ uint32_t digit_capacity(uint32_t numeric)
     return capacity;
 }
 
-void led_pins_init(uint32_t led_pins[])
+void led_pins_init()
 {
     for (int i = 0; i < LEDS_NUMBER; i++)       //sizeof(*led_pins) is equal to LEDS_NUMBER ???
     {
@@ -39,10 +49,10 @@ void led_pins_init(uint32_t led_pins[])
     }
 }
 
-void button_pin_init(uint32_t button_pin[])
+void button_pins_init()
 {
     for (int i = 0; i < BUTTONS_NUMBER; i++)
-        nrf_gpio_cfg_input(button_pin[i], NRF_GPIO_PIN_PULLUP);
+        nrf_gpio_cfg_input(button_pins[i], NRF_GPIO_PIN_PULLUP);
 }
 
 uint32_t get_button_state(uint32_t button_pin)
@@ -51,83 +61,76 @@ uint32_t get_button_state(uint32_t button_pin)
     do
     {
         state = nrf_gpio_pin_read(button_pin);
-        nrfx_coredep_delay_us(1000);
+        nrfx_coredep_delay_us(50*1000);
     } while (state != nrf_gpio_pin_read(button_pin));
     return state;
 }
 
-void led_flash(uint32_t led_pin, uint32_t flash_time_ms)
+void led_flash(uint32_t led_pin, uint32_t flash_time_ms, uint32_t num)
 {
-    nrf_gpio_pin_toggle(led_pin);
-    nrfx_coredep_delay_us(flash_time_ms * 1000);
-    nrf_gpio_pin_toggle(led_pin);
-    nrfx_coredep_delay_us(flash_time_ms * 1000);
-}
-
-uint32_t led_flash_on_button(uint32_t led_pin, uint32_t flash_time_ms, uint32_t button_pin)
-{
-    uint32_t time_left;
-    uint32_t last_state = nrf_gpio_pin_read(button_pin);
-    uint32_t timeout = 1 << 27; // It is about 35 sec
-
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < num * 2; i++)
     {
         nrf_gpio_pin_toggle(led_pin);
-        time_left = flash_time_ms;
+        nrfx_coredep_delay_us(flash_time_ms * 1000);
+    }
+}
 
-        while (time_left && timeout)
+void led_flash_on_button(uint32_t deviceID[], uint32_t flash_time_ms, struct blink_state *state)
+{
+    if (!state->left_time_ms)
+    {
+        if (state->id_number < deviceID[state->led_number] * 2)
         {
-            if (last_state != nrf_gpio_pin_read(button_pin))
-                last_state = get_button_state(button_pin);
+            state->id_number++;
+            state->left_time_ms = flash_time_ms;
+            nrf_gpio_pin_toggle(led_pins[state->led_number]);
+        }
+        else
+        {
+            state->id_number = 0;
+            state->left_time_ms = 1;
 
-            if (last_state == BUTTON_PUSH_STATE)
-            {
-                nrfx_coredep_delay_us(1000);
-                time_left--;
-            }
-            if (!--timeout)
-                    time_left = 0;
+            if (state->led_number < LEDS_NUMBER)
+                state->led_number++;
+            else
+                state->led_number = 0;
         }
     }
-    return timeout;
+
+    nrfx_coredep_delay_us(1000);
+    (state->left_time_ms)--;
 }
 
 int main(void)
 {
+    struct blink_state blink_state_s = {0, 0, 0};
+    uint32_t button_last_state = BUTTON_PUSH_STATE ^ 1UL;
+
     uint32_t digits = digit_capacity(DEVICE_ID);
     uint32_t dev_id = DEVICE_ID;
-    uint32_t digtmp = digits;
 
-    uint32_t led_pins[] = LED_PIN_NUMBERS;
-    uint32_t button_pins[] = BUTTON_PIN_NUMBERS;
+    uint32_t deviceID[LEDS_NUMBER];
+
+    for (uint32_t i = 0; i < LEDS_NUMBER; i++)
+    {
+        deviceID[i] = dev_id / digits;
+        dev_id %= digits;
+        if (digits/10)
+            digits /= 10;
+    }
 
     /* Configure led pins. */
-    led_pins_init(led_pins);
+    led_pins_init();
 
     /* Configure button pins. */
-    button_pin_init(button_pins);
+    button_pins_init();
 
-    /* Toggle LEDs as DEVICE_ID */
     while (true)
     {
-        dev_id = DEVICE_ID;
-        digtmp = digits;
+        if (nrf_gpio_pin_read(button_pins[0]) != button_last_state)
+            button_last_state = get_button_state(button_pins[0]);
 
-        for (int i = 0; i < LEDS_NUMBER; i++)
-        {
-            for (int j = 0; j < dev_id / digtmp; )
-            {
-                if (get_button_state(button_pins[0]) == BUTTON_PUSH_STATE)
-                {
-                    //led_flash(led_pins[i], LED_TIME);     //Base version of dependency from button
-                    if (led_flash_on_button(led_pins[i], LED_TIME, button_pins[0]) > 0)
-                        j++;
-                    else
-                        i = j = 0;
-                }
-            }
-            dev_id %= digtmp;
-            digtmp /= 10;
-        }
+        if (button_last_state == BUTTON_PUSH_STATE)
+            led_flash_on_button(deviceID, LED_TIME, &blink_state_s);
     }
 }
