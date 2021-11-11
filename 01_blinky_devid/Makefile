@@ -11,6 +11,22 @@ $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
 # Source files common to all targets
 SRC_FILES += \
  $(PROJ_DIR)/main.c \
+ $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_usbd.c \
+ $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_clock.c \
+ $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_power.c \
+ $(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_clock.c \
+ $(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_power.c \
+ $(SDK_ROOT)/components/libraries/log/src/nrf_log_default_backends.c \
+ $(SDK_ROOT)/components/libraries/log/src/nrf_log_backend_usb.c \
+ $(SDK_ROOT)/components/libraries/usbd/app_usbd.c \
+ $(SDK_ROOT)/components/libraries/log/src/nrf_log_backend_serial.c \
+ $(SDK_ROOT)/components/libraries/usbd/class/cdc/acm/app_usbd_cdc_acm.c \
+ $(SDK_ROOT)/components/libraries/log/src/nrf_log_backend_usb.c \
+ $(SDK_ROOT)/components/libraries/usbd/app_usbd_core.c \
+ $(SDK_ROOT)/components/libraries/usbd/app_usbd_string_desc.c \
+ $(SDK_ROOT)/components/libraries/usbd/app_usbd_serial_num.c \
+ $(SDK_ROOT)/components/libraries/atomic_fifo/nrf_atfifo.c \
+ \
  $(SDK_ROOT)/modules/nrfx/mdk/gcc_startup_nrf52840.S \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_frontend.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_str_formatter.c \
@@ -33,6 +49,15 @@ SRC_FILES += \
 # Include folders common to all targets
 INC_FOLDERS += \
  $(PROJ_DIR) \
+ $(SDK_ROOT)/components/libraries/usbd \
+ $(SDK_ROOT)/integration/nrfx/legacy \
+ $(SDK_ROOT)/modules/nrfx/drivers/include \
+ $(SDK_ROOT)/components/libraries/usbd/class/cdc \
+ $(SDK_ROOT)/components/libraries/usbd/class/cdc/acm \
+ $(SDK_ROOT)/components/libraries/timer \
+ $(SDK_ROOT)/external/utf_converter \
+ $(SDK_ROOT)/components/libraries/atomic_fifo \
+ \
  $(SDK_ROOT)/components \
  $(SDK_ROOT)/modules/nrfx/mdk \
  $(SDK_ROOT)/components/softdevice/mbr/headers \
@@ -78,6 +103,7 @@ CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
 # keep every function in a separate section, this allows linker to discard unused ones
 CFLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
 CFLAGS += -fno-builtin -fshort-enums
+CFLAGS += -DUSE_APP_CONFIG
 
 # C++ flags common to all targets
 CXXFLAGS += $(OPT)
@@ -92,6 +118,7 @@ ASMFLAGS += -DCONFIG_GPIO_AS_PINRESET
 ASMFLAGS += -DFLOAT_ABI_HARD
 ASMFLAGS += -DMBR_PRESENT
 ASMFLAGS += -DNRF52840_XXAA
+ASMFLAGS += -DUSE_APP_CONFIG
 
 # Linker flags
 LDFLAGS += $(OPT)

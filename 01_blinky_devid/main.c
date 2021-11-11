@@ -1,11 +1,21 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "nrf_delay.h"
+
+#include "nordic_common.h"
 #include "boards.h"
-#include "nrf_gpio.h"
+
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+#include "nrf_log_default_backends.h"
+
+#include "nrf_log_backend_usb.h"
+
+#include "app_usbd.h"
+#include "app_usbd_serial_num.h"
 
 #define DEVICE_ID 6596 //nRF dongle ID 6596
-#define LED_TIME 500   //LED switch on / swich off time, ms
+#define LED_TIME 400   //LED switch on / swich off time, ms
 
 /*Define PCA10059 LED pins*/
 #define LED1G   NRF_GPIO_PIN_MAP(0,6)    //Port (0,6) is equal to pin_number 6
@@ -25,11 +35,19 @@
 uint32_t led_pins[] = LED_PIN_NUMBERS;
 uint32_t button_pins[] = BUTTON_PIN_NUMBERS;
 
+void logs_init()
+{
+    ret_code_t ret = NRF_LOG_INIT(NULL);
+    APP_ERROR_CHECK(ret);
+
+    NRF_LOG_DEFAULT_BACKENDS_INIT();
+}
+
 struct blink_state
 {
-    uint32_t id_number;
-    uint32_t led_number;
-    uint32_t left_time_ms;
+    uint32_t id_number;     // Current value of number of led flashes
+    uint32_t led_number;    // Current led number
+    uint32_t left_time_ms;  // Left time of running flash
 };
 
 uint32_t digit_capacity(uint32_t numeric)
@@ -42,7 +60,7 @@ uint32_t digit_capacity(uint32_t numeric)
 
 void led_pins_init()
 {
-    for (int i = 0; i < LEDS_NUMBER; i++)       //sizeof(*led_pins) is equal to LEDS_NUMBER ???
+    for (int i = 0; i < LEDS_NUMBER; i++)
     {
         nrf_gpio_cfg_output(led_pins[i]);
         nrf_gpio_pin_write(led_pins[i], LED_ON_PORT_STATE ? 0 : 1);
@@ -75,9 +93,9 @@ void led_flash(uint32_t led_pin, uint32_t flash_time_ms, uint32_t num)
     }
 }
 
-void led_flash_on_button(uint32_t deviceID[], uint32_t flash_time_ms, struct blink_state *state)
+void q(uint32_t deviceID[], uint32_t flash_time_ms, struct blink_state *state)
 {
-    if (!state->left_time_ms)
+    if (state->left_time_ms == 0)
     {
         if (state->id_number < deviceID[state->led_number] * 2)
         {
@@ -90,7 +108,7 @@ void led_flash_on_button(uint32_t deviceID[], uint32_t flash_time_ms, struct bli
             state->id_number = 0;
             state->left_time_ms = 1;
 
-            if (state->led_number < LEDS_NUMBER)
+            if (state->led_number < LEDS_NUMBER - 1)
                 state->led_number++;
             else
                 state->led_number = 0;
@@ -103,6 +121,15 @@ void led_flash_on_button(uint32_t deviceID[], uint32_t flash_time_ms, struct bli
 
 int main(void)
 {
+    logs_init();
+
+    NRF_LOG_INFO("USB logging init");
+
+    led_pins_init();
+    button_pins_init();
+
+    NRF_LOG_INFO("Boart init. Leds: %d. Buttons: %d", BUTTONS_NUMBER, LEDS_NUMBER);
+
     struct blink_state blink_state_s = {0, 0, 0};
     uint32_t button_last_state = BUTTON_PUSH_STATE ^ 1UL;
 
@@ -115,15 +142,11 @@ int main(void)
     {
         deviceID[i] = dev_id / digits;
         dev_id %= digits;
-        if (digits/10)
+        if (digits/10 > 0)
             digits /= 10;
     }
 
-    /* Configure led pins. */
-    led_pins_init();
-
-    /* Configure button pins. */
-    button_pins_init();
+    uint32_t led_last_position = 99;
 
     while (true)
     {
@@ -131,6 +154,16 @@ int main(void)
             button_last_state = get_button_state(button_pins[0]);
 
         if (button_last_state == BUTTON_PUSH_STATE)
+        {
             led_flash_on_button(deviceID, LED_TIME, &blink_state_s);
+
+            if (led_last_position != blink_state_s.led_number)
+            {
+                led_last_position = blink_state_s.led_number;
+                NRF_LOG_INFO("Button is pushed. Led number %d", led_last_position);
+            }
+        }
+        LOG_BACKEND_USB_PROCESS();
+        NRF_LOG_PROCESS();
     }
 }
