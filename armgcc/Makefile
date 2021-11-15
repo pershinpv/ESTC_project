@@ -3,7 +3,7 @@ TARGETS          := nrf52840_xxaa
 OUTPUT_DIRECTORY := _build
 
 SDK_ROOT := ../ESTC-NSDK
-PROJ_DIR:= ../
+PROJ_DIR := ..
 
 $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
   LINKER_SCRIPT  := blinky_gcc_nrf52.ld
@@ -12,11 +12,6 @@ $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
 SRC_FILES += \
  $(PROJ_DIR)/main.c \
  $(PROJ_DIR)/gpio.c \
- $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_usbd.c \
- $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_clock.c \
- $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_power.c \
- $(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_clock.c \
- $(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_power.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_default_backends.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_backend_usb.c \
  $(SDK_ROOT)/components/libraries/usbd/app_usbd.c \
@@ -27,8 +22,13 @@ SRC_FILES += \
  $(SDK_ROOT)/components/libraries/usbd/app_usbd_string_desc.c \
  $(SDK_ROOT)/components/libraries/usbd/app_usbd_serial_num.c \
  $(SDK_ROOT)/components/libraries/atomic_fifo/nrf_atfifo.c \
+ $(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_clock.c \
+ $(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_power.c \
+ $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_usbd.c \
+ $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_clock.c \
+ $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_power.c \
+ $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_systick.c \
  \
- $(SDK_ROOT)/modules/nrfx/mdk/gcc_startup_nrf52840.S \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_frontend.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_str_formatter.c \
  $(SDK_ROOT)/components/boards/boards.c \
@@ -39,48 +39,48 @@ SRC_FILES += \
  $(SDK_ROOT)/components/libraries/util/nrf_assert.c \
  $(SDK_ROOT)/components/libraries/atomic/nrf_atomic.c \
  $(SDK_ROOT)/components/libraries/balloc/nrf_balloc.c \
- $(SDK_ROOT)/external/fprintf/nrf_fprintf.c \
- $(SDK_ROOT)/external/fprintf/nrf_fprintf_format.c \
  $(SDK_ROOT)/components/libraries/memobj/nrf_memobj.c \
  $(SDK_ROOT)/components/libraries/ringbuf/nrf_ringbuf.c \
  $(SDK_ROOT)/components/libraries/strerror/nrf_strerror.c \
+ $(SDK_ROOT)/external/fprintf/nrf_fprintf.c \
+ $(SDK_ROOT)/external/fprintf/nrf_fprintf_format.c \
  $(SDK_ROOT)/modules/nrfx/soc/nrfx_atomic.c \
  $(SDK_ROOT)/modules/nrfx/mdk/system_nrf52840.c \
+ $(SDK_ROOT)/modules/nrfx/mdk/gcc_startup_nrf52840.S \
 
 # Include folders common to all targets
 INC_FOLDERS += \
  $(PROJ_DIR) \
  $(PROJ_DIR)/config \
  $(SDK_ROOT)/components/libraries/usbd \
- $(SDK_ROOT)/integration/nrfx/legacy \
- $(SDK_ROOT)/modules/nrfx/drivers/include \
  $(SDK_ROOT)/components/libraries/usbd/class/cdc \
  $(SDK_ROOT)/components/libraries/usbd/class/cdc/acm \
  $(SDK_ROOT)/components/libraries/timer \
- $(SDK_ROOT)/external/utf_converter \
  $(SDK_ROOT)/components/libraries/atomic_fifo \
- \
  $(SDK_ROOT)/components \
- $(SDK_ROOT)/modules/nrfx/mdk \
  $(SDK_ROOT)/components/softdevice/mbr/headers \
  $(SDK_ROOT)/components/libraries/strerror \
  $(SDK_ROOT)/components/toolchain/cmsis/include \
  $(SDK_ROOT)/components/libraries/util \
  $(SDK_ROOT)/components/libraries/balloc \
  $(SDK_ROOT)/components/libraries/ringbuf \
- $(SDK_ROOT)/modules/nrfx/hal \
  $(SDK_ROOT)/components/libraries/bsp \
  $(SDK_ROOT)/components/libraries/log \
- $(SDK_ROOT)/modules/nrfx \
  $(SDK_ROOT)/components/libraries/experimental_section_vars \
  $(SDK_ROOT)/components/libraries/delay \
- $(SDK_ROOT)/integration/nrfx \
  $(SDK_ROOT)/components/drivers_nrf/nrf_soc_nosd \
  $(SDK_ROOT)/components/libraries/atomic \
  $(SDK_ROOT)/components/boards \
  $(SDK_ROOT)/components/libraries/memobj \
- $(SDK_ROOT)/external/fprintf \
  $(SDK_ROOT)/components/libraries/log/src \
+ $(SDK_ROOT)/external/fprintf \
+ $(SDK_ROOT)/external/utf_converter \
+ $(SDK_ROOT)/integration/nrfx \
+ $(SDK_ROOT)/integration/nrfx/legacy \
+ $(SDK_ROOT)/modules/nrfx \
+ $(SDK_ROOT)/modules/nrfx/hal \
+ $(SDK_ROOT)/modules/nrfx/mdk \
+ $(SDK_ROOT)/modules/nrfx/drivers/include \
 
 # Libraries common to all targets
 LIB_FILES += \
