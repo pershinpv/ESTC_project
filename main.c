@@ -6,12 +6,17 @@
 #include "nrfx_gpiote.h"
 
 #define DEVICE_ID 2222 //nRF dongle ID 6596
-#define LED_TIME 1000   //LED switch on / swich off time, ms
+#define LED_TIME 1500   //LED switch on / swich off time, ms
 #define PWM_TIME 1000 // PWM period, us. 1000 us is equal to 1 kHz.Min 100 us (equal to 10 kHz).
 
-#define DOUBLE_CLICK_MAX_TIME 1500  //MAX time for double click, ms
+#define DOUBLE_CLICK_MAX_TIME 1000  //MAX time for double click, ms
+#define BOUNCE_PROTECTION_TIME 20  //Anti-bounce guard time interval, ms
 
 #define MILITOMIKRO(time_ms) ((time_ms)*1000)
+#define MIN_PWM_PERCNT 0
+#define MAX_PWM_PERCNT 100
+#define ONE_PWM_PERCNT(value) ((value) / MAX_PWM_PERCNT)
+#define CLAMP(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
 uint32_t digit_capacity(uint32_t numeric);
 void deviceID_define(void);
@@ -20,7 +25,7 @@ uint32_t deviceID[LEDS_NUMBER];
 
 typedef struct pwm_state_s
 {
-    uint32_t pwm_state;         // Current value of pwm in percent
+    int pwm_state;         // Current value of pwm in percent
     int slew_direction;         // PWM slew direction. 1 - UP, (-1) - DOWN
     uint32_t wait_time;         // Time to next state change in PWM
     nrfx_systick_state_t time1; // Current PWM time left
@@ -35,7 +40,18 @@ typedef struct button_state_s
     uint32_t number_of_state_change;
     uint32_t interval_100ms_counter;
     nrfx_systick_state_t time_of_100ms_timer;
+    nrfx_systick_state_t bounce_protection_timer;
 } button_state_t;
+
+pwm_state_t pwm_state =
+{
+    .pwm_state = 0,
+    .slew_direction = 1,
+    .wait_time = 0,
+    .time1.time = 0,
+    .time2.time = 0,
+    .time3.time = 0,
+};
 
 button_state_t button_state =
 {
@@ -44,6 +60,7 @@ button_state_t button_state =
     .number_of_state_change = 0,
     .interval_100ms_counter = 0,
     .time_of_100ms_timer.time = 0,
+    .bounce_protection_timer.time = 0,
 };
 
 void led_pwm(blink_state_t *bstate, pwm_state_t *pstate)
@@ -53,7 +70,7 @@ void led_pwm(blink_state_t *bstate, pwm_state_t *pstate)
         if (pstate->wait_time == PWM_TIME)
         {
             nrfx_systick_get(&(pstate->time1));
-            pstate->wait_time = pstate->pwm_state * PWM_TIME / 100;
+            pstate->wait_time = PWM_TIME * pstate->pwm_state / MAX_PWM_PERCNT;
             if (pstate->pwm_state > 10)
                 nrf_gpio_pin_write(led_pins[bstate->led_number], LED_ON_PORT_STATE);
         }
@@ -88,26 +105,25 @@ void led_flash_state(uint32_t deviceID[], uint32_t flash_time_ms, blink_state_t 
         }
     }
 
-    if (nrfx_systick_test(&(pstate->time2), MILITOMIKRO(flash_time_ms) / 100 / 2))
+    if (nrfx_systick_test(&(pstate->time2), ONE_PWM_PERCNT(MILITOMIKRO(flash_time_ms) / 2)))
     {
         nrfx_systick_get(&(pstate->time2));
+        pstate->pwm_state += pstate->slew_direction;
+        pstate->pwm_state = CLAMP(pstate->pwm_state, MIN_PWM_PERCNT, MAX_PWM_PERCNT);
 
-        if (pstate->pwm_state > 0 && pstate->pwm_state < 100)
-            pstate->pwm_state += pstate->slew_direction;
-
-        if (pstate->pwm_state == 0 && pstate->slew_direction > 0)
-            pstate->pwm_state++;
-
-        if (pstate->pwm_state == 100 && pstate->slew_direction < 0)
-            pstate->pwm_state--;
     }
 }
 
-void btn_click_handler(uint32_t pin_gpiote_number, nrf_gpiote_polarity_t DNU_2)
+void btn_click_handler(uint32_t button_pin, nrf_gpiote_polarity_t DNU_2)
 {
+    if (!button_state.is_button_clicks_reset && !nrfx_systick_test(&button_state.bounce_protection_timer, MILITOMIKRO(BOUNCE_PROTECTION_TIME)))
+        return;
+
+    nrfx_systick_get(&button_state.bounce_protection_timer);
+
     if (button_state.is_button_clicks_reset)
     {
-        button_state.number_of_state_change = (button_state.number_of_state_change % 2 == 0) ? 1 : 0;
+        button_state.number_of_state_change = (nrf_gpio_pin_read(button_pin) == BUTTON_PUSH_STATE ) ? 1 : 0;
         button_state.interval_100ms_counter = 0;
         button_state.is_button_clicks_reset = false;
         return;
@@ -117,9 +133,10 @@ void btn_click_handler(uint32_t pin_gpiote_number, nrf_gpiote_polarity_t DNU_2)
 
     if(button_state.number_of_state_change == 4)
     {
-        button_state.is_double_click = true;
         button_state.number_of_state_change = 0;
         button_state.interval_100ms_counter = 0;
+        button_state.is_double_click = true;
+        button_state.is_button_clicks_reset = false;
     }
 }
 
@@ -167,10 +184,6 @@ int main(void)
 
     blink_state_t blink_state = {0, 0, 0};
     bool is_go_flash = 0;
-
-    pwm_state_t pwm_state = {0, 1, 0};
-    nrfx_systick_get(&(pwm_state.time1));
-    pwm_state.time3  = pwm_state.time2 = pwm_state.time1;
 
     while (true)
     {
