@@ -11,7 +11,10 @@ $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
 # Source files common to all targets
 SRC_FILES += \
  $(PROJ_DIR)/main.c \
- $(PROJ_DIR)/gpio.c \
+ $(PROJ_DIR)/src/gpio.c \
+ $(PROJ_DIR)/src/pwm.c \
+ $(PROJ_DIR)/src/gpio_te.c \
+ $(PROJ_DIR)/src/macro.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_default_backends.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_backend_usb.c \
  $(SDK_ROOT)/components/libraries/usbd/app_usbd.c \
@@ -51,7 +54,7 @@ SRC_FILES += \
 
 # Include folders common to all targets
 INC_FOLDERS += \
- $(PROJ_DIR) \
+ $(PROJ_DIR)/include \
  $(PROJ_DIR)/config \
  $(SDK_ROOT)/components \
  $(SDK_ROOT)/components/libraries/usbd \

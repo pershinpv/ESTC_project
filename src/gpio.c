@@ -1,5 +1,12 @@
 #include "gpio.h"
 
+blink_state_t blink_state =
+{
+    .id_number = 0,
+    .led_number = 0,
+    .left_time_ms = 0,
+};
+
 void led_pins_init()
 {
     for (int i = 0; i < LEDS_NUMBER; i++)
