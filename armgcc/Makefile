@@ -11,10 +11,12 @@ $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
 # Source files common to all targets
 SRC_FILES += \
  $(PROJ_DIR)/main.c \
+ $(PROJ_DIR)/src/log.c \
  $(PROJ_DIR)/src/gpio.c \
  $(PROJ_DIR)/src/pwm.c \
  $(PROJ_DIR)/src/gpio_te.c \
  $(PROJ_DIR)/src/macro.c \
+ $(PROJ_DIR)/src/hsv.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_default_backends.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_backend_usb.c \
  $(SDK_ROOT)/components/libraries/usbd/app_usbd.c \
@@ -32,6 +34,8 @@ SRC_FILES += \
  $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_power.c \
  $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_systick.c \
  $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_gpiote.c \
+ $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_pwm.c \
+ $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_rtc.c \
  \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_frontend.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_str_formatter.c \

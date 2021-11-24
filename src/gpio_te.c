@@ -1,14 +1,6 @@
 #include "gpio_te.h"
 
-button_state_t button_state =
-{
-    .is_double_click = false,
-    .is_button_clicks_reset = false,
-    .number_of_state_change = 0,
-    .interval_100ms_counter = 0,
-    .time_of_100ms_timer.time = 0,
-    .bounce_protection_timer.time = 0,
-};
+extern button_state_t button_state;
 
 void gpiote_pin_in_config(uint32_t pin_number, void (*btc_handler))
 {
@@ -45,19 +37,37 @@ void is_big_time_out(uint32_t timeout, nrfx_systick_state_t *timer, uint32_t *co
     }
 }
 
+extern nrfx_rtc_t rtc;
 void btn_click_handler(uint32_t button_pin, nrf_gpiote_polarity_t trigger)
 {
-    if (!button_state.is_button_clicks_reset && !nrfx_systick_test(&button_state.bounce_protection_timer, MILITOMIKRO(BOUNCE_PROTECTION_TIME)))
+    if (!button_state.is_dbl_click_timeout && !nrfx_systick_test(&button_state.bounce_protection_timer, MILITOMIKRO(BOUNCE_PROTECTION_TIME)))
         return;
 
     nrfx_systick_get(&button_state.bounce_protection_timer);
 
-    if (button_state.is_button_clicks_reset)
+    button_state.is_long_press = false;
+
+    if (button_state.is_dbl_click_timeout)
     {
-        button_state.number_of_state_change = (nrf_gpio_pin_read(button_pin) == BUTTON_PUSH_STATE ) ? 1 : 0;
-        button_state.interval_100ms_counter = 0;
-        button_state.is_button_clicks_reset = false;
+        if (nrf_gpio_pin_read(button_pin) == BUTTON_PUSH_STATE)
+        {
+            button_state.is_dbl_click_timeout = false;
+            button_state.number_of_state_change = 1;
+            nrfx_rtc_counter_clear(&rtc);
+            nrfx_rtc_cc_set(&rtc, DBL_CLICK_RTC_COMP, MILISEC_FOR_RTC(DOUBLE_CLICK_MAX_TIME), true);
+            nrfx_rtc_cc_set(&rtc, LONG_PRESS_RTC_COMP, MILISEC_FOR_RTC(LONG_PRESS_MIN_TIME), true);
+        }
+        else
+        {
+            button_state.number_of_state_change = 0;
+        }
         return;
+    }
+
+    if (nrf_gpio_pin_read(button_pin) == BUTTON_PUSH_STATE)
+    {
+        nrfx_rtc_cc_disable(&rtc, LONG_PRESS_RTC_COMP);
+        nrfx_rtc_cc_set(&rtc, LONG_PRESS_RTC_COMP, nrfx_rtc_counter_get(&rtc) + MILISEC_FOR_RTC(LONG_PRESS_MIN_TIME), true);
     }
 
     button_state.number_of_state_change++;
@@ -65,8 +75,8 @@ void btn_click_handler(uint32_t button_pin, nrf_gpiote_polarity_t trigger)
     if(button_state.number_of_state_change == 4)
     {
         button_state.number_of_state_change = 0;
-        button_state.interval_100ms_counter = 0;
         button_state.is_double_click = true;
-        button_state.is_button_clicks_reset = false;
+        button_state.is_dbl_click_timeout = true;
+        button_state.double_click_counter = (button_state.double_click_counter + 1) % 4;
     }
 }

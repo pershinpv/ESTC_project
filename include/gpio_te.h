@@ -5,17 +5,24 @@
 #include "gpio.h"
 #include "nrfx_gpiote.h"
 #include "nrfx_systick.h"
+#include "nrfx_rtc.h"
 
 #define DOUBLE_CLICK_MAX_TIME 1000  //MAX time for double click, ms
-#define BOUNCE_PROTECTION_TIME 20  //Anti-bounce guard time interval, ms
+#define LONG_PRESS_MIN_TIME 3000  //MIN time for long press, ms
+#define BOUNCE_PROTECTION_TIME 50  //Anti-bounce guard time interval, ms
+
+#define RTC_PRESCALER 4095  // RTC one clock is (RTC_PRESCALER + 1) / 32768     4096/32768=0.125sec
+#define MILISEC_FOR_RTC(milisec) ((milisec) * 32768 / (RTC_PRESCALER + 1) / 1000)
+#define DBL_CLICK_RTC_COMP 0
+#define LONG_PRESS_RTC_COMP 1
 
 typedef struct button_state_s
 {
     bool is_double_click;
-    bool is_button_clicks_reset;
+    bool is_long_press;
+    bool is_dbl_click_timeout;
     uint32_t number_of_state_change;
-    uint32_t interval_100ms_counter;
-    nrfx_systick_state_t time_of_100ms_timer;
+    uint32_t double_click_counter;
     nrfx_systick_state_t bounce_protection_timer;
 } button_state_t;
 
