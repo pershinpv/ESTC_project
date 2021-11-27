@@ -15,41 +15,18 @@
 
 #define DEVICE_ID 2222      //nRF dongle ID 6596
 #define LED_TIME 1000       //LED switch on / swich off time, ms
+#define BUTTON_RTC_INSTANCE 0
 
-HSV_t HSV =
-{
-    .h = 0,
-    .s = 100,
-    .v = 100
-};
+static nrfx_rtc_t rtc = NRFX_RTC_INSTANCE(BUTTON_RTC_INSTANCE);
 
-RGB_t RGB =
-{
-    .r = 100,
-    .g = 0,
-    .b = 0
-};
-
-button_state_t button_state =
-{
-    .is_double_click = false,
-    .is_long_press = false,
-    .is_dbl_click_timeout = true,
-    .number_of_state_change = 0,
-    .double_click_counter = 0,
-    .bounce_protection_timer.time = 0,
-};
-
-nrfx_pwm_t ctrl_led_pwm = NRFX_PWM_INSTANCE(0);
-nrfx_pwm_t rgb_led_pwm = NRFX_PWM_INSTANCE(1);
-
-nrfx_rtc_t rtc = NRFX_RTC_INSTANCE(0);
+static nrfx_pwm_t ctrl_led_pwm = NRFX_PWM_INSTANCE(0);
+static nrfx_pwm_t rgb_led_pwm = NRFX_PWM_INSTANCE(1);
 
 //----------PWM0 config begin-------------------------
-nrf_pwm_values_common_t ctrl_led_seq_vals_slow[] = {0x8000, 0x8000, 0x8000, 0, 0, 0};    // One time step is 250 ms.
-nrf_pwm_values_common_t ctrl_led_seq_vals_fast[] = {0x8000, 0};
-nrf_pwm_values_common_t ctrl_led_seq_vals_on[] = {0x8000};
-nrf_pwm_values_common_t ctrl_led_seq_vals_off[] = {0};
+static nrf_pwm_values_common_t ctrl_led_seq_vals_slow[] = {0x8000, 0x8000, 0x8000, 0, 0, 0};    // One time step is 250 ms.
+static nrf_pwm_values_common_t ctrl_led_seq_vals_fast[] = {0x8000, 0};
+static nrf_pwm_values_common_t ctrl_led_seq_vals_on[] = {0x8000};
+static nrf_pwm_values_common_t ctrl_led_seq_vals_off[] = {0};
 
 nrf_pwm_sequence_t ctrl_led_seq =
 {
@@ -109,51 +86,45 @@ nrfx_pwm_config_t const pwm_config_rgb =
 
 static void rgb_pwm_handler(nrfx_pwm_evt_type_t event_type)
 {
-    uint16_t *p_channels = (uint16_t *)&rgb_led_seq_vals;
+    static uint16_t *p_channels = (uint16_t *)&rgb_led_seq_vals;
+    static int h_step = 1;
+    static int s_step = 1;
+    static int v_step = 1;
+
+    static hsv_t hsv =
+    {
+        .h = 0,
+        .s = 100,
+        .v = 100
+    };
+
+    static rgb_t rgb =
+    {
+        .r = 100,
+        .g = 0,
+        .b = 0
+    };
 
     if (event_type == NRFX_PWM_EVT_FINISHED)
     {
-        if (button_state.is_long_press && button_state.double_click_counter > 0)
+        if (btn_is_long_press_get_state() && btn_double_click_counter_get_state() != HSV_CHANGE_NO)
         {
-            hsv_to_rgb(&HSV, &RGB);
-            NRF_LOG_INFO("HSV %d %d %d", HSV.h, HSV.s, HSV.v);
-            NRF_LOG_INFO("RGB %d %d %d", RGB.r, RGB.g, RGB.b);
+            hsv_to_rgb(&hsv, &rgb);
+            NRF_LOG_INFO("hsv %d %d %d", hsv.h, hsv.s, hsv.v);
+            NRF_LOG_INFO("rgb %d %d %d", rgb.r, rgb.g, rgb.b);
             NRF_LOG_INFO("------------");
 
-            if (button_state.double_click_counter == 1)
-                HSV.h = (HSV.h + 1) % 361;
-            else if (button_state.double_click_counter == 2)
-                HSV.s = (HSV.s + 1) % 101;
-            else if (button_state.double_click_counter == 3)
-                HSV.v = (HSV.v + 1) % 101;
+            if (btn_double_click_counter_get_state() == HSV_CHANGE_H)
+                hsv.h = (hsv.h + h_step) % (HSV_MAX_H + ABS(h_step));
+            else if (btn_double_click_counter_get_state() == HSV_CHANGE_S)
+                hsv.s = (hsv.s + calc_step(hsv.s, 0, HSV_MAX_S, &s_step)) % (HSV_MAX_V + ABS(s_step));
+            else if (btn_double_click_counter_get_state() == HSV_CHANGE_V)
+                hsv.v = (hsv.v + calc_step(hsv.v, 0, HSV_MAX_V, &v_step)) % (HSV_MAX_V + ABS(v_step));
         }
+        p_channels[1] = rgb_led_pwm_top_val / RGB_MAX_VAL * rgb.r;
+        p_channels[2] = rgb_led_pwm_top_val / RGB_MAX_VAL * rgb.g;
+        p_channels[3] = rgb_led_pwm_top_val / RGB_MAX_VAL * rgb.b;
     }
-    p_channels[1] = rgb_led_pwm_top_val / 100 * RGB.r;
-    p_channels[2] = rgb_led_pwm_top_val / 100 * RGB.g;
-    p_channels[3] = rgb_led_pwm_top_val / 100 * RGB.b;
-}
-
-void rtc_handler(nrfx_rtc_int_type_t int_type)
-{
-    if (int_type == DBL_CLICK_RTC_COMP)
-    {
-        button_state.is_dbl_click_timeout = true;
-    }
-    else if (int_type == LONG_PRESS_RTC_COMP)
-    {
-        if (nrf_gpio_pin_read(button_pins[0]) == BUTTON_PUSH_STATE && !button_state.is_double_click)
-        {
-            button_state.is_long_press = true;
-        }
-    }
-}
-
-void rtc_config(void)
-{
-    nrfx_rtc_config_t config = NRFX_RTC_DEFAULT_CONFIG;
-    config.prescaler = RTC_PRESCALER;
-    nrfx_rtc_init(&rtc, &config, rtc_handler);
-    nrfx_rtc_enable(&rtc);
 }
 
 int main(void)
@@ -164,7 +135,7 @@ int main(void)
     led_pins_init();
     button_pins_init();
     nrfx_systick_init();
-    rtc_config();
+    rtc_button_timer_init(&rtc);
     deviceID_calc(deviceID, LEDS_NUMBER, DEVICE_ID);
 
     gpiote_pin_in_config(button_pins[0], btn_click_handler);
@@ -177,30 +148,34 @@ int main(void)
 
     while (true)
     {
-        if (button_state.is_double_click)
+        if (btn_is_dbl_click_get_state())
         {
-            button_state.is_double_click = 0;
+            btn_is_dbl_click_reset();
+            //NRF_LOG_INFO("sizeof %d %d", sizeof(rgb_t), sizeof(hsv_t));
 
-            switch(button_state.double_click_counter)
+            switch(btn_double_click_counter_get_state())
             {
-            case 0:
+            case HSV_CHANGE_NO:
                 ctrl_led_seq.values.p_common = ctrl_led_seq_vals_off;
                 ctrl_led_seq.length = NRF_PWM_VALUES_LENGTH(ctrl_led_seq_vals_off);
                 break;
 
-            case 1:
+            case HSV_CHANGE_H:
                 ctrl_led_seq.values.p_common = ctrl_led_seq_vals_slow;
                 ctrl_led_seq.length = NRF_PWM_VALUES_LENGTH(ctrl_led_seq_vals_slow);
                 break;
 
-            case 2:
+            case HSV_CHANGE_S:
                 ctrl_led_seq.values.p_common = ctrl_led_seq_vals_fast;
                 ctrl_led_seq.length = NRF_PWM_VALUES_LENGTH(ctrl_led_seq_vals_fast);
                 break;
 
-            case 3:
+            case HSV_CHANGE_V:
                 ctrl_led_seq.values.p_common = ctrl_led_seq_vals_on;
                 ctrl_led_seq.length = NRF_PWM_VALUES_LENGTH(ctrl_led_seq_vals_on);
+                break;
+
+            default:
                 break;
             }
 

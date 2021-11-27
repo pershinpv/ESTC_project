@@ -1,6 +1,6 @@
 #include "hsv.h"
 
-void hsv_to_rgb(HSV_t *hsv, RGB_t *rgb)
+void hsv_to_rgb(hsv_t *hsv, rgb_t *rgb)
 {
     uint16_t Vmin = hsv->v * (100 - hsv->s) / 100;
     uint16_t a = (hsv->v - Vmin) * (hsv->h % 60) / 60;

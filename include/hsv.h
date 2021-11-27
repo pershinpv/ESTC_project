@@ -3,20 +3,25 @@
 
 #include <stdint.h>
 
-typedef struct
-{
-    uint32_t r;
-    uint32_t g;
-    uint32_t b;
-} RGB_t;
+#define HSV_MAX_H   360
+#define HSV_MAX_S   100
+#define HSV_MAX_V   100
+#define RGB_MAX_VAL 100
 
 typedef struct
 {
-    uint32_t h;
-    uint32_t s;
-    uint32_t v;
-} HSV_t;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+} rgb_t;
 
-void hsv_to_rgb(HSV_t *hsv, RGB_t *rgb);
+typedef struct
+{
+    uint16_t h;
+    uint8_t s;
+    uint8_t v;
+} hsv_t;
+
+void hsv_to_rgb(hsv_t *hsv, rgb_t *rgb);
 
 #endif
