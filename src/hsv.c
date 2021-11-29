@@ -41,3 +41,13 @@ void hsv_to_rgb(hsv_t *hsv, rgb_t *rgb)
         break;
     }
 }
+
+void hsv_validate_or_reset(hsv_t *hsv)
+{
+    if(hsv->h > HSV_MAX_H || hsv->s > HSV_MAX_S || hsv->v > HSV_MAX_V)
+    {
+        hsv->h = HSV_INIT_H;
+        hsv->s = HSV_INIT_S;
+        hsv->v = HSV_INIT_V;
+    }
+}

@@ -7,6 +7,7 @@
 #include "gpio_te.h"
 #include "pwm.h"
 #include "hsv.h"
+#include "nvmc.h"
 
 #include "nrfx_pwm.h"
 #include "nrf_drv_pwm.h"
@@ -16,6 +17,9 @@
 #define DEVICE_ID 2222      //nRF dongle ID 6596
 #define LED_TIME 1000       //LED switch on / swich off time, ms
 #define BUTTON_RTC_INSTANCE 0
+
+static hsv_t hsv;
+static rgb_t rgb;
 
 static nrfx_rtc_t rtc = NRFX_RTC_INSTANCE(BUTTON_RTC_INSTANCE);
 
@@ -91,31 +95,17 @@ static void rgb_pwm_handler(nrfx_pwm_evt_type_t event_type)
     static int s_step = 1;
     static int v_step = 1;
 
-    static hsv_t hsv =
-    {
-        .h = 0,
-        .s = 100,
-        .v = 100
-    };
-
-    static rgb_t rgb =
-    {
-        .r = 100,
-        .g = 0,
-        .b = 0
-    };
-
     if (event_type == NRFX_PWM_EVT_FINISHED)
     {
         if (btn_is_long_press_get_state() && btn_double_click_counter_get_state() != HSV_CHANGE_NO)
         {
             hsv_to_rgb(&hsv, &rgb);
-            NRF_LOG_INFO("hsv %d %d %d", hsv.h, hsv.s, hsv.v);
-            NRF_LOG_INFO("rgb %d %d %d", rgb.r, rgb.g, rgb.b);
-            NRF_LOG_INFO("------------");
+            //NRF_LOG_INFO("hsv %d %d %d", hsv.h, hsv.s, hsv.v);
+            //NRF_LOG_INFO("rgb %d %d %d", rgb.r, rgb.g, rgb.b);
+            //NRF_LOG_INFO("------------");
 
             if (btn_double_click_counter_get_state() == HSV_CHANGE_H)
-                hsv.h = (hsv.h + h_step) % (HSV_MAX_H + ABS(h_step));
+                hsv.h = (hsv.h + h_step) % HSV_MAX_H;
             else if (btn_double_click_counter_get_state() == HSV_CHANGE_S)
                 hsv.s = (hsv.s + calc_step(hsv.s, 0, HSV_MAX_S, &s_step)) % (HSV_MAX_V + ABS(s_step));
             else if (btn_double_click_counter_get_state() == HSV_CHANGE_V)
@@ -140,6 +130,10 @@ int main(void)
 
     gpiote_pin_in_config(button_pins[0], btn_click_handler);
 
+    read_hsv_actual_values(&hsv);
+    hsv_validate_or_reset(&hsv);
+    hsv_to_rgb(&hsv, &rgb);
+
     nrfx_pwm_init(&ctrl_led_pwm, &pwm_config_ctrl, NULL);
     nrfx_pwm_init(&rgb_led_pwm, &pwm_config_rgb, rgb_pwm_handler);
 
@@ -158,6 +152,8 @@ int main(void)
             case HSV_CHANGE_NO:
                 ctrl_led_seq.values.p_common = ctrl_led_seq_vals_off;
                 ctrl_led_seq.length = NRF_PWM_VALUES_LENGTH(ctrl_led_seq_vals_off);
+                write_hsv_actual_values(&hsv);
+                read_hsv_values_for_log(&hsv);
                 break;
 
             case HSV_CHANGE_H:
@@ -180,7 +176,6 @@ int main(void)
             }
 
             nrfx_pwm_simple_playback(&ctrl_led_pwm, &ctrl_led_seq, 1, NRFX_PWM_FLAG_LOOP);
-            //NRF_LOG_INFO("Button state is changed. Current state is %d", pwm_state.time2.time);
         }
 
         LOG_BACKEND_USB_PROCESS();
