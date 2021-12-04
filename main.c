@@ -60,7 +60,7 @@ nrfx_pwm_config_t pwm_config_ctrl =
 
 //----------PWM1 config begin-------------------------
 
-uint16_t const rgb_led_pwm_top_val = 20000;
+uint16_t const rgb_led_pwm_top_val = 25000;
 nrf_pwm_values_individual_t rgb_led_seq_vals;
 nrf_pwm_sequence_t const    rgb_led_seq =
 {
@@ -100,9 +100,9 @@ static void rgb_pwm_handler(nrfx_pwm_evt_type_t event_type)
         if (btn_is_long_press_get_state() && btn_double_click_counter_get_state() != HSV_CHANGE_NO)
         {
             hsv_to_rgb(&hsv, &rgb);
-            //NRF_LOG_INFO("hsv %d %d %d", hsv.h, hsv.s, hsv.v);
-            //NRF_LOG_INFO("rgb %d %d %d", rgb.r, rgb.g, rgb.b);
-            //NRF_LOG_INFO("------------");
+            // NRF_LOG_INFO("hsv %d %d %d", hsv.h, hsv.s, hsv.v);
+            // NRF_LOG_INFO("rgb %d %d %d", rgb.r, rgb.g, rgb.b);
+            // NRF_LOG_INFO("------------");
 
             if (btn_double_click_counter_get_state() == HSV_CHANGE_H)
                 hsv.h = (hsv.h + h_step) % HSV_MAX_H;
@@ -130,8 +130,9 @@ int main(void)
 
     gpiote_pin_in_config(button_pins[0], btn_click_handler);
 
-    read_hsv_actual_values(&hsv);
-    hsv_validate_or_reset(&hsv);
+    nvmc_read_hsv_actual_values(&hsv);
+    if (!hsv_values_validate(&hsv))
+        hsv_values_init(&hsv);
     hsv_to_rgb(&hsv, &rgb);
 
     nrfx_pwm_init(&ctrl_led_pwm, &pwm_config_ctrl, NULL);
@@ -145,15 +146,15 @@ int main(void)
         if (btn_is_dbl_click_get_state())
         {
             btn_is_dbl_click_reset();
-            //NRF_LOG_INFO("sizeof %d %d", sizeof(rgb_t), sizeof(hsv_t));
+            //NRF_LOG_INFO("sizeof %d %d", sizeof(uint8_t *), sizeof(uint32_t *));
 
             switch(btn_double_click_counter_get_state())
             {
             case HSV_CHANGE_NO:
                 ctrl_led_seq.values.p_common = ctrl_led_seq_vals_off;
                 ctrl_led_seq.length = NRF_PWM_VALUES_LENGTH(ctrl_led_seq_vals_off);
-                write_hsv_actual_values(&hsv);
-                read_hsv_values_for_log(&hsv);
+                nvmc_write_hsv_actual_values(&hsv);
+                nvmc_read_hsv_values_for_log();
                 break;
 
             case HSV_CHANGE_H:

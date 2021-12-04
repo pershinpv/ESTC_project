@@ -30,13 +30,13 @@ void gpiote_pin_in_config(uint32_t pin_number, void (*btc_handler))
     nrfx_gpiote_in_event_enable(pin_gpiote_number, true);
 }
 
+
 void btn_click_handler(uint32_t button_pin, nrf_gpiote_polarity_t trigger)
 {
     static uint8_t button_state_changes_counter = 0;
 
-    if (!nrfx_systick_test(&button_state.bounce_protection_timer, MILITOMIKRO(BOUNCE_PROTECTION_TIME)))
+    if (!nrfx_systick_test(&button_state.bounce_protection_timer, MILITOMIKRO(BOUNCE_PROTECTION_TIME)) && !button_state.is_dbl_click_timeout)
         return;
-
     nrfx_systick_get(&button_state.bounce_protection_timer);
 
     button_state.is_long_press = false;

@@ -1,6 +1,6 @@
 #include "hsv.h"
 
-void hsv_to_rgb(hsv_t *hsv, rgb_t *rgb)
+void hsv_to_rgb(hsv_t const *const hsv, rgb_t *const rgb)
 {
     uint16_t Vmin = hsv->v * (100 - hsv->s) / 100;
     uint16_t a = (hsv->v - Vmin) * (hsv->h % 60) / 60;
@@ -42,7 +42,22 @@ void hsv_to_rgb(hsv_t *hsv, rgb_t *rgb)
     }
 }
 
-void hsv_validate_or_reset(hsv_t *hsv)
+bool hsv_values_validate(hsv_t const *const hsv)
+{
+    if(hsv->h > HSV_MAX_H || hsv->s > HSV_MAX_S || hsv->v > HSV_MAX_V)
+        return false;
+    else
+        return true;
+}
+
+void hsv_values_init(hsv_t *const hsv)
+{
+    hsv->h = HSV_INIT_H;
+    hsv->s = HSV_INIT_S;
+    hsv->v = HSV_INIT_V;
+}
+
+void hsv_validate_or_reset(hsv_t *const hsv)
 {
     if(hsv->h > HSV_MAX_H || hsv->s > HSV_MAX_S || hsv->v > HSV_MAX_V)
     {
