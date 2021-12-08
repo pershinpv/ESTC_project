@@ -13,6 +13,7 @@
 #include "nrf_drv_pwm.h"
 
 #include "nrfx_rtc.h"
+#include "cdc_acm_ctrl.h"
 
 #define DEVICE_ID 2222      //nRF dongle ID 6596
 #define LED_TIME 1000       //LED switch on / swich off time, ms
@@ -25,6 +26,7 @@ static nrfx_rtc_t rtc = NRFX_RTC_INSTANCE(BUTTON_RTC_INSTANCE);
 
 static nrfx_pwm_t ctrl_led_pwm = NRFX_PWM_INSTANCE(0);
 static nrfx_pwm_t rgb_led_pwm = NRFX_PWM_INSTANCE(1);
+static void process_cli_command(cli_command_t command);
 
 //----------PWM0 config begin-------------------------
 static nrf_pwm_values_common_t ctrl_led_seq_vals_slow[] = {0x8000, 0x8000, 0x8000, 0, 0, 0};    // One time step is 250 ms.
@@ -120,6 +122,7 @@ static void rgb_pwm_handler(nrfx_pwm_evt_type_t event_type)
 int main(void)
 {
     uint32_t deviceID[LEDS_NUMBER];
+    cli_command_t main_cli_command;
 
     logs_init();
     led_pins_init();
@@ -141,12 +144,24 @@ int main(void)
     nrfx_pwm_simple_playback(&ctrl_led_pwm, &ctrl_led_seq, 1, NRFX_PWM_FLAG_LOOP);
     nrfx_pwm_simple_playback(&rgb_led_pwm, &rgb_led_seq, 1, NRFX_PWM_FLAG_LOOP);
 
+    cli_cdc_acm_connect_ep();
+
     while (true)
     {
+        main_cli_command = cli_command_to_do_get();
+
+        if (main_cli_command.comand_type != CLI_NO_COMMAND)
+        {
+            process_cli_command(main_cli_command);
+            cli_command_reset();
+            btn_is_dbl_click_set();
+            btn_double_click_counter_reset();
+        }
+
         if (btn_is_dbl_click_get_state())
         {
             btn_is_dbl_click_reset();
-            //NRF_LOG_INFO("sizeof %d %d", sizeof(uint8_t *), sizeof(uint32_t *));
+            //NRF_LOG_INFO("sizeof %d %d", sizeof("Wrong command") / sizeof(char), sizeof(char));
 
             switch(btn_double_click_counter_get_state())
             {
@@ -181,5 +196,33 @@ int main(void)
 
         LOG_BACKEND_USB_PROCESS();
         NRF_LOG_PROCESS();
+    }
+}
+
+static void process_cli_command(cli_command_t command)
+{
+    NRF_LOG_INFO("Get command %d %d %d %d", command.comand_type, command.param_1, command.param_2, command.param_3);
+
+    switch (command.comand_type)
+    {
+
+    case CLI_SET_RGB:
+        rgb.r = (uint8_t)(command.param_1 * RGB_MAX_VAL / CLI_RGB_MAX_VAL);
+        rgb.g = (uint8_t)(command.param_2 * RGB_MAX_VAL / CLI_RGB_MAX_VAL);
+        rgb.b = (uint8_t)(command.param_3 * RGB_MAX_VAL / CLI_RGB_MAX_VAL);
+        rgb_to_hsv(&hsv, &rgb);
+        cli_send_result_message();
+        break;
+
+    case CLI_SET_HSV:
+        hsv.h = (uint8_t) command.param_1;
+        hsv.s = (uint8_t) command.param_2;
+        hsv.v = (uint8_t) command.param_3;
+        hsv_to_rgb(&hsv, &rgb);
+        cli_send_result_message();
+        break;
+
+    default:
+        break;
     }
 }

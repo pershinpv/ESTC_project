@@ -54,5 +54,6 @@ void btn_is_dbl_click_timeout_set(void);
 void btn_set_dbl_click_timeout(bool value);
 
 hsv_change_mode_t btn_double_click_counter_get_state(void);
+void btn_double_click_counter_reset(void);
 
 #endif

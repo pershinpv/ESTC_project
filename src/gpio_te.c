@@ -146,3 +146,8 @@ hsv_change_mode_t btn_double_click_counter_get_state(void)
 {
     return button_state.double_click_counter;
 }
+
+void btn_double_click_counter_reset(void)
+{
+    button_state.double_click_counter = HSV_CHANGE_NO;
+}

@@ -66,3 +66,38 @@ void hsv_validate_or_reset(hsv_t *const hsv)
         hsv->v = HSV_INIT_V;
     }
 }
+
+void rgb_to_hsv(hsv_t *const hsv, rgb_t const *const rgb)
+{
+    uint8_t rgb_min, rgb_max;
+
+    rgb_min = rgb->r < rgb->g ? (rgb->r < rgb->b ? rgb->r : rgb->b) : (rgb->g < rgb->b ? rgb->g : rgb->b);
+    rgb_max = rgb->r > rgb->g ? (rgb->r > rgb->b ? rgb->r : rgb->b) : (rgb->g > rgb->b ? rgb->g : rgb->b);
+
+    hsv->v = rgb_max;
+    if (rgb_max == 0)
+    {
+        hsv->h = 0;
+        hsv->s = 0;
+        return;
+    }
+
+    hsv->s = ((uint16_t)(rgb_max - rgb_min) * 100) / rgb_max;
+    if (hsv->s == 0)
+    {
+        hsv->h = 0;
+        return;
+    }
+
+    if (rgb_max == rgb->r)
+    {
+        if(rgb->g >= rgb->b)
+            hsv->h = 60 * ((uint16_t)(rgb->g - rgb->b)) / (rgb_max - rgb_min);
+        else
+            hsv->h = 60 * ((uint16_t)(rgb_max - rgb_min) * 6 + rgb->g - rgb->b) / (rgb_max - rgb_min);
+    }
+    else if (rgb_max == rgb->g)
+        hsv->h = 60 * ((uint16_t)(rgb_max - rgb_min) * 2 + rgb->b - rgb->r) / (rgb_max - rgb_min);
+    else
+        hsv->h = 60 * ((uint16_t)(rgb_max - rgb_min) * 4 + rgb->r - rgb->g) / (rgb_max - rgb_min);
+}

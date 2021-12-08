@@ -31,5 +31,6 @@ void hsv_to_rgb(hsv_t const *const hsv, rgb_t *const rgb);
 bool hsv_values_validate(hsv_t const *const hsv);
 void hsv_values_init(hsv_t *const hsv);
 void hsv_validate_or_reset(hsv_t *const hsv);
+void rgb_to_hsv(hsv_t *const hsv, rgb_t const *const rgb);
 
 #endif

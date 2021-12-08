@@ -18,6 +18,7 @@ SRC_FILES += \
  $(PROJ_DIR)/src/macro.c \
  $(PROJ_DIR)/src/hsv.c \
  $(PROJ_DIR)/src/nvmc.c \
+ $(PROJ_DIR)/src/cdc_acm_ctrl.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_default_backends.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_backend_usb.c \
  $(SDK_ROOT)/components/libraries/usbd/app_usbd.c \
