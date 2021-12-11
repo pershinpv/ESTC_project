@@ -15,6 +15,8 @@
 
 #define CLI_RGB_MAX_VAL 255
 
+#define KEY_DELETE 127       //DELETE key code. It's come from backspace key.
+
 typedef enum
 {
     CLI_NO_COMMAND = 0,

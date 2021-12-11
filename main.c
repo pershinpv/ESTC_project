@@ -148,6 +148,11 @@ int main(void)
 
     while (true)
     {
+        while (app_usbd_event_queue_process())
+        {
+            /* Nothing to do */
+        }
+
         main_cli_command = cli_command_to_do_get();
 
         if (main_cli_command.comand_type != CLI_NO_COMMAND)
@@ -201,11 +206,11 @@ int main(void)
 
 static void process_cli_command(cli_command_t command)
 {
-    NRF_LOG_INFO("Get command %d %d %d %d", command.comand_type, command.param_1, command.param_2, command.param_3);
+    static char *help_msg[CLI_COMMANDS_QTY];
+    static uint8_t help_msg_len;
 
     switch (command.comand_type)
     {
-
     case CLI_SET_RGB:
         rgb.r = (uint8_t)(command.param_1 * RGB_MAX_VAL / CLI_RGB_MAX_VAL);
         rgb.g = (uint8_t)(command.param_2 * RGB_MAX_VAL / CLI_RGB_MAX_VAL);
@@ -220,6 +225,22 @@ static void process_cli_command(cli_command_t command)
         hsv.v = (uint8_t) command.param_3;
         hsv_to_rgb(&hsv, &rgb);
         cli_send_result_message();
+        break;
+
+    case CLI_HELP:
+
+        help_msg[0] = "Support commands:";
+        help_msg[1] = "1. RGB <r> <g> <b>. r, g, b: (0...255)";
+        help_msg[2] = "2. HSV <h> <s> <v>. h: (0...359); s, v: (0...100)";
+        help_msg[3] = "3. 'help' to see this list";
+
+        for (size_t i = 0; i < CLI_COMMANDS_QTY; ++i)
+        {
+            help_msg_len = 0;
+            while (help_msg[i][help_msg_len] != '\0')
+                ++help_msg_len;
+            cli_send_message(help_msg[i], ++help_msg_len, true);
+        }
         break;
 
     default:

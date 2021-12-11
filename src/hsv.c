@@ -1,4 +1,5 @@
 #include "hsv.h"
+#include "macro.h"
 
 void hsv_to_rgb(hsv_t const *const hsv, rgb_t *const rgb)
 {
@@ -71,8 +72,8 @@ void rgb_to_hsv(hsv_t *const hsv, rgb_t const *const rgb)
 {
     uint8_t rgb_min, rgb_max;
 
-    rgb_min = rgb->r < rgb->g ? (rgb->r < rgb->b ? rgb->r : rgb->b) : (rgb->g < rgb->b ? rgb->g : rgb->b);
-    rgb_max = rgb->r > rgb->g ? (rgb->r > rgb->b ? rgb->r : rgb->b) : (rgb->g > rgb->b ? rgb->g : rgb->b);
+    rgb_min = MIN3(rgb->r, rgb->g, rgb->b);
+    rgb_max = MAX3(rgb->r, rgb->g, rgb->b);
 
     hsv->v = rgb_max;
     if (rgb_max == 0)
