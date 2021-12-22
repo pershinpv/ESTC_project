@@ -41,19 +41,8 @@ void btn_click_handler(uint32_t button_pin, nrf_gpiote_polarity_t trigger);
 void rtc_button_timer_init(nrfx_rtc_t * rtc_ptr);
 void rtc_handler(nrfx_rtc_int_type_t int_type);
 
-void btn_is_dbl_click_set(void);
-void btn_is_dbl_click_reset(void);
-bool btn_is_dbl_click_get_state(void);
-
-void btn_is_long_press_set(void);
-void btn_is_long_press_reset(void);
+bool gpiote_is_new_dbl_click(void);
 bool btn_is_long_press_get_state(void);
-
-void btn_is_dbl_click_timeout_set(void);
-
-void btn_set_dbl_click_timeout(bool value);
-
 hsv_change_mode_t btn_double_click_counter_get_state(void);
-void btn_double_click_counter_reset(void);
 
 #endif

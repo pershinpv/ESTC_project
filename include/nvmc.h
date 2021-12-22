@@ -1,22 +1,28 @@
 #ifndef NVMC_H
 #define NVMC_H
 
-#include <stdint.h>
-#include "nrfx_nvmc.h"
-#include "hsv.h"
-#include "log.h"
+#include "color.h"
 
-#define BOOTLOADER_START_ADDR (0x000E0000UL)
-#define APP_DATA_PAGES_QTY 3UL
-#define PAGE_SIZE_BYTES 4096UL
+#define CLEAR_WORD                      (0xFFFFFFFF)
+#define BOOTLOADER_START_ADDR           (0x000E0000UL)
+#define APP_DATA_PAGES_QTY              3UL
+#define PAGE_SIZE_BYTES                 4096UL
 #define APP_DATA_START_ADDR (BOOTLOADER_START_ADDR - APP_DATA_PAGES_QTY * PAGE_SIZE_BYTES)
-#define RGB_INIT_VALS_PAGE_ADDR (APP_DATA_START_ADDR + (APP_DATA_PAGES_QTY - 1) * PAGE_SIZE_BYTES)
-#define HSV_INIT_VALS_PAGE_ADDR (APP_DATA_START_ADDR + (APP_DATA_PAGES_QTY - 1) * PAGE_SIZE_BYTES)
+#define SIZE_OF_COLOR_NAME_MAX_BYTES    8UL     //Maximum size of color name: 7 bytes for name and 1 byte for attribute "deleted"
+#define SIZE_OF_COLOR_RGB_VALUE_BYTES   4UL     //Size of RGB color value: R + G + B + CRC
+#define SIZE_OF_COLOR_NAME_BUFFER       20UL    //Size of buffer for color names
+#define DELETE_ATTRIBUTE                ('d')   // The value of attribute for deleted color
 
-uint32_t find_first_free_pos_addr(uint32_t page_start_addr);
-bool check_for_new_hsv_vals(hsv_t const *const hsv_vals, uint8_t const *const last_address);
-void nvmc_write_hsv_actual_values(hsv_t const *const hsv_vals);
-void nvmc_read_hsv_actual_values(hsv_t *const hsv_vals);
-void nvmc_read_hsv_values_for_log();
+//Start address shifting of the saved color names relatively to APP_DATA_START_ADDR
+#define SHIFT_ADDR_COLOR_NAMES          0UL
 
+//Start address shifting of the RGB values for saved color names relatively to APP_DATA_START_ADDR
+#define SHIFT_ADDR_COLOR_NAMES_VALS     (SHIFT_ADDR_COLOR_NAMES + SIZE_OF_COLOR_NAME_MAX_BYTES * SIZE_OF_COLOR_NAME_BUFFER)
+
+//Start address shifting of an address of first position of last saved RGB values relatively to APP_DATA_START_ADDR
+#define SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR (SHIFT_ADDR_COLOR_NAMES_VALS + SIZE_OF_COLOR_RGB_VALUE_BYTES * SIZE_OF_COLOR_NAME_BUFFER)
+
+void nvmc_read_rgb_actual_values(rgb_t *const rgb_vals);
+void nvmc_write_rgb_actual_values(rgb_t const *const rgb_vals);
+void nvmc_read_rgb_actual_values_for_log();
 #endif

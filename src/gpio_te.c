@@ -11,6 +11,33 @@ static button_state_t button_state =
     .is_dbl_click_timeout = true,
 };
 
+bool gpiote_is_new_dbl_click(void)
+{
+    bool result = button_state.is_double_click;
+    button_state.is_double_click = false;
+    return result;
+}
+
+bool btn_is_long_press_get_state(void)
+{
+    return button_state.is_long_press;
+}
+
+hsv_change_mode_t btn_double_click_counter_get_state(void)
+{
+    return button_state.double_click_counter;
+}
+
+static void btn_is_long_press_set(void)
+{
+    button_state.is_long_press = true;
+}
+
+static void btn_is_dbl_click_timeout_set(void)
+{
+    button_state.is_dbl_click_timeout = true;
+}
+
 void gpiote_pin_in_config(uint32_t pin_number, void (*btc_handler))
 {
     nrfx_gpiote_pin_t pin_gpiote_number = pin_number;
@@ -29,7 +56,6 @@ void gpiote_pin_in_config(uint32_t pin_number, void (*btc_handler))
     nrfx_gpiote_in_init(pin_gpiote_number, &pin_gpiote_in_config, btc_handler);
     nrfx_gpiote_in_event_enable(pin_gpiote_number, true);
 }
-
 
 void btn_click_handler(uint32_t button_pin, nrf_gpiote_polarity_t trigger)
 {
@@ -97,57 +123,4 @@ void rtc_button_timer_init(nrfx_rtc_t * rtc_ptr)
     config.prescaler = RTC_PRESCALER;
     nrfx_rtc_init(btn_rtc_ptr, &config, rtc_handler);
     nrfx_rtc_enable(btn_rtc_ptr);
-}
-
-//------------is_dbl_click--------------
-
-void btn_is_dbl_click_set(void)
-{
-    button_state.is_double_click = true;
-}
-
-void btn_is_dbl_click_reset(void)
-{
-    button_state.is_double_click = false;
-}
-
-bool btn_is_dbl_click_get_state(void)
-{
-    return button_state.is_double_click;
-}
-
-//------------is_long_press----------------
-
-void btn_is_long_press_set(void)
-{
-    button_state.is_long_press = true;
-}
-
-void btn_is_long_press_reset(void)
-{
-    button_state.is_long_press = false;
-}
-
-bool btn_is_long_press_get_state(void)
-{
-    return button_state.is_long_press;
-}
-
-//------------is_dbl_click_timeout-----------
-
-void btn_is_dbl_click_timeout_set(void)
-{
-    button_state.is_dbl_click_timeout = true;
-}
-
-//----------double_click_counter------------
-
-hsv_change_mode_t btn_double_click_counter_get_state(void)
-{
-    return button_state.double_click_counter;
-}
-
-void btn_double_click_counter_reset(void)
-{
-    button_state.double_click_counter = HSV_CHANGE_NO;
 }
