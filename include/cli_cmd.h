@@ -5,10 +5,17 @@
 #include "app_usbd_cdc_acm.h"
 #include "log.h"
 #include "color.h"
+#include "nvmc.h"
 
-#define CLI_COMMAND_MAX_LEN     55  //add_rgb_color <r> <g> <b> <color_name>\0
-#define CLI_COLOR_NAME_MAX_LEN  24
-#define CLI_COMMANDS_NUMBER     4
+#define CLI_COMMANDS_NUMBER 6
+
+#ifdef NVMC_H
+#define CLI_COLOR_NAME_MAX_LEN (SIZE_OF_COLOR_NAME_MAX_BYTES - 1)
+#else
+#define CLI_COLOR_NAME_MAX_LEN 24
+#endif
+
+#define CLI_COMMAND_MAX_LEN (CLI_COLOR_NAME_MAX_LEN + 27)   //add_rgb_color <color_name> <r> <g> <b>\0
 
 typedef enum
 {
@@ -16,7 +23,7 @@ typedef enum
     CLI_RES_NOT_FOUND = 1,
 } cli_cmd_result_t;
 
-typedef cli_cmd_result_t (*cmd_handler_t)(char const *usb_msg, uint8_t usb_msg_len);
+typedef cli_cmd_result_t (*cmd_handler_t)(char const * cmd_name, char const *usb_msg, uint8_t usb_msg_len);
 
 typedef struct
 {

@@ -14,6 +14,7 @@
 
 #include "nrfx_pwm.h"
 #include "nrf_drv_pwm.h"
+#include "nrfx_nvmc.h"
 
 #include "nrfx_rtc.h"
 

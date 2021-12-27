@@ -29,28 +29,21 @@ void cli_usb_cdc_acm_init(void usb_msg_handler(char const * usb_msg, uint8_t usb
 
 void cli_usb_send_message(char const msg[], size_t msg_lenght, bool is_line_feed)
 {
-    ret_code_t ret;
-    uint8_t lenght = 0;
-    if (is_line_feed)
-        lenght = msg_lenght + 2;
-    else
-        lenght = msg_lenght;
-
-    char send_msg[lenght];
-
-    for(int i = 0; i < lenght; ++i )
-        send_msg[i] = msg[i];
-
-    if (is_line_feed)
-    {
-        send_msg[lenght - 2] = '\r';
-        send_msg[lenght - 1] = '\n';
-    }
+    ret_code_t ret = 0;
 
     do
     {
-        ret = app_usbd_cdc_acm_write(&usb_cdc_acm, send_msg, msg_lenght + 2);
+            ret = app_usbd_cdc_acm_write(&usb_cdc_acm, msg, msg_lenght);
     } while (ret == NRF_ERROR_BUSY);
+
+    if (is_line_feed)
+    {
+        do
+        {
+            ret = app_usbd_cdc_acm_write(&usb_cdc_acm, "\r\n", 3);
+        } while (ret == NRF_ERROR_BUSY);
+    }
+
     NRF_LOG_INFO("Send message. Err code: %d", ret);
 }
 
