@@ -96,12 +96,12 @@ uint8_t color_crc_calc_rgb(rgb_t const *const rgb_vals)
     return (rgb_vals->r + rgb_vals->g + rgb_vals->b);
 }
 
-static bool color_rgb_values_validate(rgb_t const *const rgb_vals)
+bool color_rgb_values_validate(rgb_t const *const rgb_vals)
 {
-    if(color_crc_calc_rgb(rgb_vals) != rgb_vals->crc)
-        return false;
-    else
+    if(color_crc_calc_rgb(rgb_vals) == rgb_vals->crc)
         return true;
+    else
+        return false;
 }
 
 static void color_rgb_values_init(rgb_t *const rgb_vals)
