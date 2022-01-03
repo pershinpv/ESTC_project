@@ -18,13 +18,13 @@
 
 #include "nrfx_rtc.h"
 
-#define DEVICE_ID 2222      //nRF dongle ID 6596
+#define DEVICE_ID 6596      //nRF dongle ID 6596
 #define LED_TIME 1000       //LED switch on / swich off time, ms
 #define BUTTON_RTC_INSTANCE 0
 #define CTRL_LED_PWM_INSTANCE 0
 #define RGB_LED_PWM_INSTANCE 1
 
-#define CLEAR_WORK_PAGES 0  //Clear work pages at start if TRUE
+#define CLEAR_WORK_PAGES 0  //Clear work pages at start if "1"
 
 static nrfx_rtc_t rtc = NRFX_RTC_INSTANCE(BUTTON_RTC_INSTANCE);
 
@@ -33,21 +33,22 @@ static nrfx_pwm_t rgb_led_pwm = NRFX_PWM_INSTANCE(RGB_LED_PWM_INSTANCE);
 
 int main(void)
 {
+#if CLEAR_WORK_PAGES
+    nrfx_nvmc_page_erase(APP_DATA_START_ADDR);
+    nrfx_nvmc_page_erase(APP_DATA_START_ADDR + PAGE_SIZE_BYTES);
+#endif
+
     uint32_t deviceID[LEDS_NUMBER];
 
     logs_init();
     led_pins_init();
     button_pins_init();
     nrfx_systick_init();
+    nvmc_flash_init();
     rtc_button_timer_init(&rtc);
     deviceID_calc(deviceID, LEDS_NUMBER, DEVICE_ID);
 
     gpiote_pin_in_config(button_pins[0], btn_click_handler);
-
-#if CLEAR_WORK_PAGES
-    nrfx_nvmc_page_erase(APP_DATA_START_ADDR);
-    nrfx_nvmc_page_erase(APP_DATA_START_ADDR + PAGE_SIZE_BYTES);
-#endif
 
     color_restore_rgb_last_state();
     color_ctrl_led_pwm_init(&ctrl_led_pwm);

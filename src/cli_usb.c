@@ -44,7 +44,7 @@ void cli_usb_send_message(char const msg[], size_t msg_lenght, bool is_line_feed
         } while (ret == NRF_ERROR_BUSY);
     }
 
-    NRF_LOG_INFO("Send message. Err code: %d", ret);
+    //NRF_LOG_INFO("Send message. Err code: %d", ret);
 }
 
 static void clear_string(char *msg, uint8_t lenght)
@@ -94,13 +94,13 @@ static void usb_ev_handler(app_usbd_class_inst_t const * p_inst, app_usbd_cdc_ac
             {
                 size_t rx_bufer_size = app_usbd_cdc_acm_bytes_stored(&usb_cdc_acm);
 
-                NRF_LOG_INFO("RX escape %d", m_rx_buffer[0]);
+                //NRF_LOG_INFO("RX escape %d", m_rx_buffer[0]);
 
                 if (rx_bufer_size > 0)
                 {
                     uint8_t rx_big_bufer[rx_bufer_size - 1];
                     ret = app_usbd_cdc_acm_read(&usb_cdc_acm, rx_big_bufer, rx_bufer_size);
-                    NRF_LOG_INFO("RX escape sec %d %d %d", rx_bufer_size, rx_big_bufer[0], rx_big_bufer[1]);
+                    //NRF_LOG_INFO("RX escape sec %d %d %d", rx_bufer_size, rx_big_bufer[0], rx_big_bufer[1]);
                 }
             }
             else if (m_rx_buffer[0] == KEY_DELETE || m_rx_buffer[0] == '\b')
@@ -108,7 +108,7 @@ static void usb_ev_handler(app_usbd_class_inst_t const * p_inst, app_usbd_cdc_ac
                 ret = app_usbd_cdc_acm_write(&usb_cdc_acm, "\b \b", 3);
                 if (command_symbol_position > 0)
                     --command_symbol_position;
-                NRF_LOG_INFO("RX backspace %d %d", ret, command_symbol_position);
+                //NRF_LOG_INFO("RX backspace %d %d", ret, command_symbol_position);
             }
             else
             {

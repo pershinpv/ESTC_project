@@ -6,24 +6,21 @@
 #include "log.h"
 #include "color.h"
 #include "nvmc.h"
+#include "estc_error.h"
 
-#define CLI_COMMANDS_NUMBER 6
+#define CLI_COMMANDS_NUMBER 7
 
 #ifdef NVMC_H
 #define CLI_COLOR_NAME_MAX_LEN (SIZE_OF_COLOR_NAME_MAX_BYTES - 1)
+#define CLI_SAVED_COLORS_MAX_NUM SAVED_COLORS_MAX_NUM
 #else
-#define CLI_COLOR_NAME_MAX_LEN 24
+#define CLI_COLOR_NAME_MAX_LEN 23
+#define CLI_SAVED_COLORS_MAX_NUM 10
 #endif
 
 #define CLI_COMMAND_MAX_LEN (CLI_COLOR_NAME_MAX_LEN + 27)   //add_rgb_color <color_name> <r> <g> <b>\0
 
-typedef enum
-{
-    CLI_RES_OK = 0,
-    CLI_RES_NOT_FOUND = 1,
-} cli_cmd_result_t;
-
-typedef cli_cmd_result_t (*cmd_handler_t)(char const * cmd_name, char const *usb_msg, uint8_t usb_msg_len);
+typedef estc_ret_code_t (*cmd_handler_t)(char const * cmd_name, char const *usb_msg, uint8_t usb_msg_len);
 
 typedef struct
 {
@@ -35,8 +32,14 @@ void cli_cmd_command_reset (void);
 void cli_cmd_handler(char const *usb_msg, uint8_t usb_msg_len);
 
 //-------------old
+/*
+typedef enum
+{
+    CLI_RES_OK = 0,
+    CLI_RES_NOT_FOUND = 1,
+} cli_cmd_result_t;
 
-/*typedef enum
+typedef enum
 {
     CLI_NO_COMMAND = 0,
     CLI_SET_RGB = 1,
