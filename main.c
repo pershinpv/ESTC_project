@@ -54,7 +54,9 @@ int main(void)
     color_ctrl_led_pwm_init(&ctrl_led_pwm);
     color_rgb_led_pwm_init(&rgb_led_pwm);
 
+#if ESTC_USB_CLI_ENABLED
     cli_usb_cdc_acm_init(cli_cmd_handler);
+#endif
 
     while (true)
     {

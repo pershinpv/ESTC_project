@@ -8,13 +8,13 @@
 #include "log.h"
 
 #define HSV_MAX_H   360
-#define HSV_MAX_S   100
-#define HSV_MAX_V   100
+#define HSV_MAX_S   255
+#define HSV_MAX_V   255
 #define RGB_MAX_VAL 255
 
 #define HSV_INIT_H   0
-#define HSV_INIT_S   100
-#define HSV_INIT_V   100
+#define HSV_INIT_S   255
+#define HSV_INIT_V   255
 
 typedef struct
 {

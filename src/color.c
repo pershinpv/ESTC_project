@@ -8,7 +8,7 @@ static rgb_t color_rgb;
 
 void color_hsv_to_rgb(hsv_t const *const hsv, rgb_t *const rgb)
 {
-    uint16_t Vmin = hsv->v * (100 - hsv->s) / 100;
+    uint16_t Vmin = hsv->v * (HSV_MAX_S - hsv->s) / HSV_MAX_S;
     uint16_t a = (hsv->v - Vmin) * (hsv->h % 60) / 60;
     uint16_t Vinc = Vmin + a;
     uint16_t Vdec = hsv->v - a;
@@ -46,9 +46,9 @@ void color_hsv_to_rgb(hsv_t const *const hsv, rgb_t *const rgb)
         rgb->b = Vdec;
         break;
     }
-    rgb->r = (uint16_t)rgb->r * RGB_MAX_VAL / 100;
-    rgb->g = (uint16_t)rgb->g * RGB_MAX_VAL / 100;
-    rgb->b = (uint16_t)rgb->b * RGB_MAX_VAL / 100;
+    //rgb->r = (uint16_t)rgb->r * RGB_MAX_VAL / 100;
+    //rgb->g = (uint16_t)rgb->g * RGB_MAX_VAL / 100;
+    //rgb->b = (uint16_t)rgb->b * RGB_MAX_VAL / 100;
     rgb->crc = color_crc_calc_rgb(rgb);
 }
 
@@ -56,9 +56,9 @@ static void rgb_to_hsv(hsv_t *const hsv, rgb_t const *const rgb)
 {
     uint8_t rgb_min, rgb_max;
 
-    uint8_t r = (uint16_t)rgb->r * 100 / RGB_MAX_VAL;
-    uint8_t g = (uint16_t)rgb->g * 100 / RGB_MAX_VAL;
-    uint8_t b = (uint16_t)rgb->b * 100 / RGB_MAX_VAL;
+    uint8_t r = (uint16_t)rgb->r;// * 100 / RGB_MAX_VAL;
+    uint8_t g = (uint16_t)rgb->g;// * 100 / RGB_MAX_VAL;
+    uint8_t b = (uint16_t)rgb->b;// * 100 / RGB_MAX_VAL;
 
     rgb_min = MIN3(r, g, b);
     rgb_max = MAX3(r, g, b);
@@ -71,7 +71,7 @@ static void rgb_to_hsv(hsv_t *const hsv, rgb_t const *const rgb)
         return;
     }
 
-    hsv->s = ((uint16_t)(rgb_max - rgb_min) * 100) / rgb_max;
+    hsv->s = ((uint16_t)(rgb_max - rgb_min) * HSV_MAX_S) / rgb_max;
     if (hsv->s == 0)
     {
         hsv->h = 0;
@@ -83,12 +83,12 @@ static void rgb_to_hsv(hsv_t *const hsv, rgb_t const *const rgb)
         if(g >= b)
             hsv->h = 60 * ((uint16_t)(g - b)) / (rgb_max - rgb_min);
         else
-            hsv->h = 60 * ((uint16_t)(rgb_max - rgb_min) * 6 + g - b) / (rgb_max - rgb_min);
+            hsv->h = (60 * ((uint32_t)(rgb_max - rgb_min) * 6 + g - b) / (rgb_max - rgb_min)) % HSV_MAX_H;
     }
     else if (rgb_max == g)
         hsv->h = 60 * ((uint16_t)(rgb_max - rgb_min) * 2 + b - r) / (rgb_max - rgb_min);
     else
-        hsv->h = 60 * ((uint16_t)(rgb_max - rgb_min) * 4 + r - g) / (rgb_max - rgb_min);
+        hsv->h = 60 * ((uint32_t)(rgb_max - rgb_min) * 4 + r - g) / (rgb_max - rgb_min);
 }
 
 uint8_t color_crc_calc_rgb(rgb_t const *const rgb_vals)
@@ -208,7 +208,7 @@ static void rgb_pwm_handler(nrfx_pwm_evt_type_t event_type)
     static int h_step = 1;
     static int s_step = 1;
     static int v_step = 1;
-    const uint8_t speed_prescaler = 16;
+    const uint8_t speed_prescaler = 8;
     static uint8_t prescaler_counter = 0;
 
     if (event_type == NRFX_PWM_EVT_FINISHED)
@@ -223,8 +223,8 @@ static void rgb_pwm_handler(nrfx_pwm_evt_type_t event_type)
                 color_hsv.v = (color_hsv.v + calc_step(color_hsv.v, 0, HSV_MAX_V, &v_step)) % (HSV_MAX_V + ABS(v_step));
             color_hsv_to_rgb(&color_hsv, &color_rgb);
 
-            //NRF_LOG_INFO("hsv %d %d %d", hsv.h, hsv.s, hsv.v);
-            //NRF_LOG_INFO("rgb %d %d %d", rgb.r, rgb.g, rgb.b);
+            //NRF_LOG_INFO("hsv %d %d %d", color_hsv.h, color_hsv.s, color_hsv.v);
+            //NRF_LOG_INFO("rgb %d %d %d", color_rgb.r, color_rgb.g, color_rgb.b);
             //NRF_LOG_INFO("------------");
         }
         p_channels[1] = rgb_led_pwm_top_val / RGB_MAX_VAL * color_rgb.r;

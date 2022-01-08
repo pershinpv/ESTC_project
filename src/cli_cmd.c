@@ -132,11 +132,11 @@ static estc_ret_code_t handler_cmd_hsv(char const *cmd_name, char const *usb_msg
 
     if (ret_code == ESTC_SUCCESS)
     {
-        if (params[0] <= HSV_MAX_H && params[1] <= HSV_MAX_S && params[2] <= HSV_MAX_V)
+        if (params[0] <= CLI_HSV_MAX_H && params[1] <= CLI_HSV_MAX_S && params[2] <= CLI_HSV_MAX_V)
         {
             hsv.h = (uint16_t)params[0];
-            hsv.s = (uint8_t)params[1];
-            hsv.v = (uint8_t)params[2];
+            hsv.s = (uint8_t)(params[1] * HSV_MAX_S / CLI_HSV_MAX_S);
+            hsv.v = (uint8_t)(params[2] * HSV_MAX_V / CLI_HSV_MAX_V);
             color_hsv_to_rgb(&hsv, &rgb);
             color_value_set_rgb(&rgb);
             cmd_msg_len = sprintf(cmd_msg, "Color set to %s %u %u %u", cmd_name, params[0], params[1], params[2]);

@@ -8,6 +8,10 @@
 #include "nvmc.h"
 #include "estc_error.h"
 
+#define CLI_HSV_MAX_H   HSV_MAX_H
+#define CLI_HSV_MAX_S   100
+#define CLI_HSV_MAX_V   100
+
 #define CLI_COMMANDS_NUMBER 7
 
 #ifdef NVMC_H
