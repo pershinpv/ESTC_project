@@ -9,7 +9,7 @@ static uint32_t find_first_free_pos_addr_between(uint32_t start_addr, uint32_t s
 static uint32_t get_active_page_start_addr(uint32_t first_page_address);
 static bool check_for_new_rgb_vals(rgb_t const *const rgb_vals, uint8_t const *const address);
 static uint32_t nvmc_copy_good_vals_to_new_page(uint32_t const old_page_addr, uint32_t const new_page_addr, uint32_t const last_value);
-static uint32_t is_color_name_exist(uint32_t const page_start_addr, char const color_name[]);
+static uint32_t find_color_name_addr(uint32_t const page_start_addr, char const color_name[]);
 static bool is_free_memory_for_colors (uint32_t const page_start_addr);
 static void nvmc_write_color_name(uint32_t address, char const color_name[]);
 
@@ -74,15 +74,15 @@ void nvmc_write_rgb_actual_values(rgb_t const *const rgb_vals)
     uint32_t current_write_address = 0;
 
     active_page_start_addr = get_active_page_start_addr(APP_DATA_START_ADDR);
-    current_write_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR, \
+    current_write_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR,
                                                              active_page_start_addr + PAGE_SIZE_BYTES);
 
      if (current_write_address == 0)
     {
         if (check_for_new_rgb_vals(rgb_vals, (uint8_t *) (active_page_start_addr + PAGE_SIZE_BYTES - WORD_SIZE)))
         {
-        uint32_t new_page_start_address = (active_page_start_addr == APP_DATA_START_ADDR) ? \
-                                          (APP_DATA_START_ADDR + PAGE_SIZE_BYTES) : APP_DATA_START_ADDR;
+            uint32_t new_page_start_address = (active_page_start_addr == APP_DATA_START_ADDR) ?
+                                              (APP_DATA_START_ADDR + PAGE_SIZE_BYTES) : APP_DATA_START_ADDR;
 
             nvmc_copy_good_vals_to_new_page(active_page_start_addr, new_page_start_address, rgb_word);
             nrfx_nvmc_page_erase(active_page_start_addr);
@@ -105,10 +105,10 @@ estc_ret_code_t nvmc_rgb_color_add(rgb_t const *const rgb_vals, char const color
     uint32_t current_color_name_address = 0;
 
     active_page_start_addr = get_active_page_start_addr(APP_DATA_START_ADDR);
-    current_color_vals_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_COLOR_NAMES_VALS, \
+    current_color_vals_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_COLOR_NAMES_VALS,
                                                                   active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR);
 
-    if (is_color_name_exist(active_page_start_addr, color_name) > 0)
+    if (find_color_name_addr(active_page_start_addr, color_name) > 0)
         return ESTC_ERROR_SAME_DATA_NAME;
 
     if (!is_free_memory_for_colors(active_page_start_addr))
@@ -116,11 +116,11 @@ estc_ret_code_t nvmc_rgb_color_add(rgb_t const *const rgb_vals, char const color
 
     if (current_color_vals_address == 0)
     {
-        uint32_t new_page_start_address = (active_page_start_addr == APP_DATA_START_ADDR) ? \
+        uint32_t new_page_start_address = (active_page_start_addr == APP_DATA_START_ADDR) ?
                                           (APP_DATA_START_ADDR + PAGE_SIZE_BYTES) : APP_DATA_START_ADDR;
 
         current_color_vals_address = nvmc_copy_good_vals_to_new_page(active_page_start_addr, new_page_start_address, rgb_word);
-        current_color_name_address = SHIFT_ADDR_COLOR_NAMES + new_page_start_address + \
+        current_color_name_address = SHIFT_ADDR_COLOR_NAMES + new_page_start_address +
         ((current_color_vals_address - new_page_start_address - SHIFT_ADDR_COLOR_NAMES_VALS) / 4) * SIZE_OF_COLOR_NAME_MAX_BYTES;
 
         nvmc_write_color_name(current_color_name_address, color_name);
@@ -129,7 +129,7 @@ estc_ret_code_t nvmc_rgb_color_add(rgb_t const *const rgb_vals, char const color
     }
     else
     {
-        current_color_name_address = SHIFT_ADDR_COLOR_NAMES + active_page_start_addr + \
+        current_color_name_address = SHIFT_ADDR_COLOR_NAMES + active_page_start_addr +
         ((current_color_vals_address - active_page_start_addr - SHIFT_ADDR_COLOR_NAMES_VALS) / 4) * SIZE_OF_COLOR_NAME_MAX_BYTES;
 
         nvmc_write_color_name(current_color_name_address, color_name);
@@ -143,7 +143,7 @@ estc_ret_code_t nvmc_rgb_color_del(char const color_name[])
 {
     uint32_t color_addr = 0;
 
-    color_addr = is_color_name_exist(get_active_page_start_addr(APP_DATA_START_ADDR), color_name);
+    color_addr = find_color_name_addr(get_active_page_start_addr(APP_DATA_START_ADDR), color_name);
 
     if (color_addr == 0)
     {
@@ -159,12 +159,12 @@ estc_ret_code_t nvmc_rgb_color_del(char const color_name[])
 //return address of RGB values for color_name or 0 if color_name not found
 estc_ret_code_t nvmc_rgb_color_get_vals(rgb_t *const rgb_vals, char const color_name[])
 {
-    uint32_t color_addr = is_color_name_exist(get_active_page_start_addr(APP_DATA_START_ADDR), color_name);
+    uint32_t color_addr = find_color_name_addr(get_active_page_start_addr(APP_DATA_START_ADDR), color_name);
     if (color_addr > 0)
     {
-        color_addr = (color_addr - get_active_page_start_addr(APP_DATA_START_ADDR) - SHIFT_ADDR_COLOR_NAMES) / \
-                SIZE_OF_COLOR_NAME_MAX_BYTES * SIZE_OF_COLOR_RGB_VALUE_BYTES + SHIFT_ADDR_COLOR_NAMES_VALS + \
-                get_active_page_start_addr(APP_DATA_START_ADDR);
+        color_addr = (color_addr - get_active_page_start_addr(APP_DATA_START_ADDR) - SHIFT_ADDR_COLOR_NAMES) /
+                     SIZE_OF_COLOR_NAME_MAX_BYTES * SIZE_OF_COLOR_RGB_VALUE_BYTES + SHIFT_ADDR_COLOR_NAMES_VALS +
+                     get_active_page_start_addr(APP_DATA_START_ADDR);
 
         rgb_vals->r = *(uint8_t *)(color_addr + 0);
         rgb_vals->g = *(uint8_t *)(color_addr + 1);
@@ -188,7 +188,7 @@ estc_ret_code_t nvmc_rgb_color_get_list(rgb_t rgb_vals[], char color_name[][SIZE
     {
         name_addr = active_page_start_addr + SHIFT_ADDR_COLOR_NAMES + curr_color_num * SIZE_OF_COLOR_NAME_MAX_BYTES;
 
-        if (*(uint8_t *)(name_addr + SIZE_OF_COLOR_NAME_MAX_BYTES - 1) != ATTRIBUTE_DELETE && \
+        if (*(uint8_t *)(name_addr + SIZE_OF_COLOR_NAME_MAX_BYTES - 1) != ATTRIBUTE_DELETE &&
             *(uint32_t *)name_addr != CLEAR_WORD && name_counter < SAVED_COLORS_MAX_NUM)
         {
             for (size_t chars_counter = 0; chars_counter < SIZE_OF_COLOR_NAME_MAX_BYTES; chars_counter += WORD_SIZE)
@@ -220,7 +220,7 @@ void nvmc_read_rgb_actual_values(rgb_t *const rgb_vals)
     uint32_t current_read_address;
 
     active_page_start_addr = get_active_page_start_addr(APP_DATA_START_ADDR);
-    current_read_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR, \
+    current_read_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR,
                                                             active_page_start_addr + PAGE_SIZE_BYTES);
 
     if (current_read_address == 0)      //0 if the page is full
@@ -243,7 +243,7 @@ void nvmc_read_rgb_actual_values_for_log()
 
     active_page_start_addr = get_active_page_start_addr(APP_DATA_START_ADDR);
 
-    current_color_vals_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_COLOR_NAMES_VALS, \
+    current_color_vals_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_COLOR_NAMES_VALS,
                                                                   active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR);
 
     if (current_color_vals_address == 0)      //0 if the page is full
@@ -251,7 +251,7 @@ void nvmc_read_rgb_actual_values_for_log()
     else
         current_color_vals_address -= WORD_SIZE;
 
-    if (*(uint32_t *)(APP_DATA_START_ADDR + SHIFT_ADDR_ATTRIBUTE_INIT) != ATTRIBUTE_INIT && \
+    if (*(uint32_t *)(APP_DATA_START_ADDR + SHIFT_ADDR_ATTRIBUTE_INIT) != ATTRIBUTE_INIT &&
         *(uint32_t *)(APP_DATA_START_ADDR + PAGE_SIZE_BYTES + SHIFT_ADDR_ATTRIBUTE_INIT) != ATTRIBUTE_INIT)
             NRF_LOG_INFO("+++++ATTENTION! Pages not inited+++++");
 
@@ -272,8 +272,8 @@ void nvmc_read_rgb_actual_values_for_log()
                 color_name[char_counter] = 0;
         }
 
-        NRF_LOG_INFO("Name address: 0x%X Color name: %c%c%c%c Delete attribute: %d", \
-                      name_adrr, color_name[0] % 255, color_name[1] % 255, color_name[2] % 255, color_name[3] % 255, \
+        NRF_LOG_INFO("Name address: 0x%X Color name: %c%c%c%c Delete attribute: %d",
+                      name_adrr, color_name[0] % 255, color_name[1] % 255, color_name[2] % 255, color_name[3] % 255,
                                  color_name[SIZE_OF_COLOR_NAME_MAX_BYTES - 1] % 255);
 
         NRF_LOG_INFO("Vals address: 0x%X r=%d g=%d b=%d crc=%d",
@@ -282,8 +282,8 @@ void nvmc_read_rgb_actual_values_for_log()
 
     NRF_LOG_INFO("-----Reading %d colors values (%d bytes) finished-----", number_of_saved_colors, number_of_saved_colors * WORD_SIZE);
 
-    current_last_val_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR, \
-                                                            active_page_start_addr + PAGE_SIZE_BYTES);
+    current_last_val_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR,
+                                                                active_page_start_addr + PAGE_SIZE_BYTES);
 
     if (current_last_val_address == 0)      //0 if the page is full
         current_last_val_address = active_page_start_addr + PAGE_SIZE_BYTES - WORD_SIZE;
@@ -292,12 +292,12 @@ void nvmc_read_rgb_actual_values_for_log()
 
     for (uint32_t addr = active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR; addr <= current_last_val_address; addr += WORD_SIZE)
     {
-        NRF_LOG_INFO("At address 0x%X r=%d g=%d b=%d crc=%d", addr, \
-        *(uint8_t *)addr, *(uint8_t *) (addr + 1), *(uint8_t *) (addr + 2), *(uint8_t *) (addr + 3));
+        NRF_LOG_INFO("At address 0x%X r=%d g=%d b=%d crc=%d", addr,
+                     *(uint8_t *)addr, *(uint8_t *) (addr + 1), *(uint8_t *) (addr + 2), *(uint8_t *) (addr + 3));
     }
-    NRF_LOG_INFO("-----Reading %d bytes (%d records) finished-----", \
-     current_last_val_address - active_page_start_addr - SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR + WORD_SIZE, \
-    (current_last_val_address - active_page_start_addr - SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR + WORD_SIZE) / WORD_SIZE);
+    NRF_LOG_INFO("-----Reading %d bytes (%d records) finished-----",
+                 current_last_val_address - active_page_start_addr - SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR + WORD_SIZE,
+                 (current_last_val_address - active_page_start_addr - SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR + WORD_SIZE) / WORD_SIZE);
 }
 
 //find_first_free_pos_addr_between return 0 if free position not found
@@ -362,8 +362,8 @@ static uint32_t nvmc_copy_good_vals_to_new_page(uint32_t const old_page_addr, ui
     return new_color_vals_addr;
 }
 
-// is_color_name_exist return 0 if color name is new and return color address if the color name exist
-static uint32_t is_color_name_exist(uint32_t const page_start_addr, char const color_name[])
+// find_color_name_addr return 0 if color name is new and return color address if the color name exist
+static uint32_t find_color_name_addr(uint32_t const page_start_addr, char const color_name[])
 {
     for (size_t color_addr = page_start_addr + SHIFT_ADDR_COLOR_NAMES; color_addr < page_start_addr + SHIFT_ADDR_COLOR_NAMES_VALS;
          color_addr += SIZE_OF_COLOR_NAME_MAX_BYTES)
@@ -409,7 +409,7 @@ static void nvmc_write_color_name(uint32_t address, char const color_name[])
 
     for (size_t cur_char = 0; cur_char < SIZE_OF_COLOR_NAME_MAX_BYTES; cur_char += WORD_SIZE)
     {
-        color_word = (color_name[cur_char + 0]) + (color_name[cur_char + 1] << 8) \
+        color_word = (color_name[cur_char + 0]) + (color_name[cur_char + 1] << 8)
                    + (color_name[cur_char + 2] << 16) + (color_name[cur_char + 3] << 24);
 
         nrfx_nvmc_word_write(address + cur_char, color_word);

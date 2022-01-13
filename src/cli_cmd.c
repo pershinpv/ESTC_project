@@ -1,8 +1,9 @@
 #include <string.h>
+#include <ctype.h>
 #include "cli_cmd.h"
 #include "cli_usb.h"
 
-//usb_msg is a message from USB. Message format is a zero-terminated string.
+//usb_msg is a message from USB. Message formated is a zero-terminated string.
 static estc_ret_code_t handler_cmd_help(char const *cmd_name, char const *usb_msg, uint8_t usb_msg_len);
 static estc_ret_code_t handler_cmd_rgb(char const *cmd_name, char const *usb_msg, uint8_t usb_msg_len);
 static estc_ret_code_t handler_cmd_hsv(char const *cmd_name, char const *usb_msg, uint8_t usb_msg_len);
@@ -28,7 +29,7 @@ static cli_cmd_cdescriptor_t cli_commands[] =
 
 static void cli_cmd_error_handler(estc_ret_code_t ret_code)
 {
-    char *error_msg[8];
+    static char *error_msg[8];
 
     error_msg[0] = "Unknown error. For help type 'help'";
     error_msg[1] = "Unknown command. For help type 'help'";
@@ -67,7 +68,7 @@ static estc_ret_code_t handler_cmd_help(char const *cmd_name, char const *usb_ms
     const size_t param_num = 0;
     uint16_t params[param_num];
 
-    char *help_msg[CLI_COMMANDS_NUMBER + 1];
+    static char *help_msg[CLI_COMMANDS_NUMBER + 1];
     estc_ret_code_t ret_code = cli_cmd_calc_param_values(usb_msg, params, strlen(cmd_name), param_num);
 
     if (ret_code == ESTC_SUCCESS)
@@ -108,7 +109,7 @@ static estc_ret_code_t handler_cmd_rgb(char const *cmd_name, char const *usb_msg
             rgb.b = (uint8_t)params[2];
             rgb.crc = color_crc_calc_rgb(&rgb);
             color_value_set_rgb(&rgb);
-            cmd_msg_len = sprintf(cmd_msg, "Color set to %s %u %u %u", cmd_name, params[0], params[1], params[2]);
+            cmd_msg_len = snprintf(cmd_msg, cmd_msg_len, "Color set to %s %u %u %u", cmd_name, params[0], params[1], params[2]);
             cli_usb_send_message(cmd_msg, cmd_msg_len, true);
             nvmc_write_rgb_actual_values(&rgb);
         }
@@ -139,7 +140,7 @@ static estc_ret_code_t handler_cmd_hsv(char const *cmd_name, char const *usb_msg
             hsv.v = (uint8_t)(params[2] * HSV_MAX_V / CLI_HSV_MAX_V);
             color_hsv_to_rgb(&hsv, &rgb);
             color_value_set_rgb(&rgb);
-            cmd_msg_len = sprintf(cmd_msg, "Color set to %s %u %u %u", cmd_name, params[0], params[1], params[2]);
+            cmd_msg_len = snprintf(cmd_msg, cmd_msg_len, "Color set to %s %u %u %u", cmd_name, params[0], params[1], params[2]);
             cli_usb_send_message(cmd_msg, cmd_msg_len, true);
             nvmc_write_rgb_actual_values(&rgb);
         }
@@ -180,7 +181,7 @@ static estc_ret_code_t handler_cmd_add_rgb_color(char const *cmd_name, char cons
                     size_t cmd_msg_len = sizeof("Add color RGB ") + usb_msg_len - 1;
                     char cmd_msg[cmd_msg_len];
                     color_value_set_rgb(&rgb);
-                    cmd_msg_len = sprintf(cmd_msg, "Add color '%s' RGB %u %u %u", color_name, params[0], params[1], params[2]);
+                    cmd_msg_len = snprintf(cmd_msg, cmd_msg_len, "Add color '%s' RGB %u %u %u", color_name, params[0], params[1], params[2]);
                     cli_usb_send_message(cmd_msg, cmd_msg_len, true);
                     nvmc_write_rgb_actual_values(&rgb);
                 }
@@ -214,7 +215,7 @@ static estc_ret_code_t handler_cmd_del_color(char const *cmd_name, char const *u
     {
         size_t cmd_msg_len = sizeof("Color '' deleted") + usb_msg_len - 1;
         char cmd_msg[cmd_msg_len];
-        cmd_msg_len = sprintf(cmd_msg, "Color '%s' deleted", color_name);
+        cmd_msg_len = snprintf(cmd_msg, cmd_msg_len, "Color '%s' deleted", color_name);
         cli_usb_send_message(cmd_msg, cmd_msg_len, true);
     }
 
@@ -245,7 +246,7 @@ static estc_ret_code_t handler_cmd_apply_color(char const *cmd_name, char const 
 
             color_value_set_rgb(&rgb);
             nvmc_write_rgb_actual_values(&rgb);
-            cmd_msg_len = sprintf(cmd_msg, "Color '%s' applyed", color_name);
+            cmd_msg_len = snprintf(cmd_msg, cmd_msg_len, "Color '%s' applyed", color_name);
             cli_usb_send_message(cmd_msg, cmd_msg_len, true);
         }
         else
@@ -253,7 +254,7 @@ static estc_ret_code_t handler_cmd_apply_color(char const *cmd_name, char const 
             size_t cmd_msg_len = sizeof("Color '' CRC check faild. Color doesn't set.") + usb_msg_len - 1;
             char cmd_msg[cmd_msg_len];
 
-            cmd_msg_len = sprintf(cmd_msg, "Color '%s' CRC check faild. Color doesn't set.", color_name);
+            cmd_msg_len = snprintf(cmd_msg, cmd_msg_len, "Color '%s' CRC check faild. Color doesn't set.", color_name);
             cli_usb_send_message(cmd_msg, cmd_msg_len, true);
         }
     }
@@ -264,9 +265,9 @@ static estc_ret_code_t handler_cmd_apply_color(char const *cmd_name, char const 
 static estc_ret_code_t handler_cmd_list_color(char const *cmd_name, char const *usb_msg, uint8_t usb_msg_len)
 {
     rgb_t rgb[CLI_SAVED_COLORS_MAX_NUM];
+    size_t cmd_msg_len = sizeof("Color 12 : RGB 123 123 123 : ") + CLI_COLOR_NAME_MAX_LEN + 1;
     char color_name[CLI_SAVED_COLORS_MAX_NUM][CLI_COLOR_NAME_MAX_LEN + 1];
-    char cmd_msg[CLI_COMMAND_MAX_LEN];
-    uint8_t cmd_msg_len = 0;
+    char cmd_msg[cmd_msg_len];
 
     if (!is_only_spaces(usb_msg, strlen(cmd_name)))
         return ESTC_ERROR_INVALID_PARAM;
@@ -277,7 +278,7 @@ static estc_ret_code_t handler_cmd_list_color(char const *cmd_name, char const *
 
         while (color_crc_calc_rgb(&rgb[counter]) == rgb[counter].crc && counter < CLI_SAVED_COLORS_MAX_NUM)
         {
-            cmd_msg_len = sprintf(cmd_msg, "Color %2d : RGB %3u %3u %3u : %s", \
+            cmd_msg_len = snprintf(cmd_msg, cmd_msg_len, "Color %2d : RGB %3u %3u %3u : %s", \
                                   counter + 1, rgb[counter].r, rgb[counter].g, rgb[counter].b, color_name[counter]);
 
             cli_usb_send_message(cmd_msg, cmd_msg_len, true);
@@ -305,7 +306,7 @@ static estc_ret_code_t cli_cmd_calc_param_values(char const command[], uint16_t 
             {
                 params[param_counter] = 0;
 
-                while (command[param_position] >= '0' && command[param_position] <= '9')
+                while (isdigit((int)command[param_position]) > 0)
                 {
                     params[param_counter] = params[param_counter] * 10 + command[param_position] - '0';
                     ++param_position;
@@ -347,40 +348,30 @@ static size_t cli_cmd_calc_word(char const command[], char word[], size_t param_
     uint8_t char_position = 0;
     word[0] = '\0';
 
-    if (command[param_position] == ' ')
-        do
-        {
-            ++param_position;
-        } while (command[param_position] == ' ');
-    else
+    if (command[param_position] != ' ')
         return param_position = 0;
 
-    if((command[param_position] >='0' && command[param_position] <='9') || command[param_position] =='_')
-        return param_position = 0;
-
-    while ((command[param_position] >='A' && command[param_position] <='Z') || \
-           (command[param_position] >='a' && command[param_position] <='z') || \
-           (command[param_position] >='0' && command[param_position] <='9') || \
-            command[param_position] =='_')
+    do
     {
-        if (char_position < CLI_COLOR_NAME_MAX_LEN - 1)
-        {
-            word[char_position] = command[param_position];
-        }
-        else
-        {
+        ++param_position;
+    } while (command[param_position] == ' ');
+
+    if(isdigit((int)command[param_position]) > 0)
+        return param_position = 0;
+
+    while (isalnum((int)command[param_position]) > 0)
+    {
+        if (char_position == CLI_COLOR_NAME_MAX_LEN - 1)
             return param_position = 0;
-        }
+
+        word[char_position] = command[param_position];
         ++char_position;
         ++param_position;
     }
 
     word[char_position++] = '\0';
 
-    while (char_position < SIZE_OF_COLOR_NAME_MAX_BYTES)
-    {
-        word[char_position] = 0xFF;
-        ++char_position;
-    }
+    memset(word + char_position, 0xFF, SIZE_OF_COLOR_NAME_MAX_BYTES - char_position);
+
     return param_position;
 }
