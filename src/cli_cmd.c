@@ -29,18 +29,36 @@ static cli_cmd_cdescriptor_t cli_commands[] =
 
 static void cli_cmd_error_handler(estc_ret_code_t ret_code)
 {
-    static char *error_msg[8];
+    static char *error_msg;
+    switch (ret_code)
+    {
+    case ESTC_ERROR_NOT_FOUND:
+        error_msg = "Unknown command. For help type 'help'";
+        break;
+    case ESTC_ERROR_INVALID_PARAM:
+        error_msg = "Invalid parameters set. For help type 'help'";
+        break;
+    case ESTC_ERROR_INVALID_PARAM_DATA:
+        error_msg = "Invalid parameters values. For help type 'help'";
+        break;
+    case ESTC_ERROR_NO_MEM:
+        error_msg = "No Memory for operation";
+        break;
+    case ESTC_ERROR_SAME_DATA_NAME:
+        error_msg = "The same color name exist";
+        break;
+    case ESTC_ERROR_SAME_DATA:
+        error_msg = "The same data exist";
+        break;
+    case ESTC_ERROR_NAME_NOT_FOUND:
+        error_msg = "Color not found.";
+        break;
+    default:
+        error_msg = "Unknown error. For help type 'help'";
+        break;
+    }
 
-    error_msg[0] = "Unknown error. For help type 'help'";
-    error_msg[1] = "Unknown command. For help type 'help'";
-    error_msg[2] = "Invalid parameters set. For help type 'help'";
-    error_msg[3] = "Invalid parameters values. For help type 'help'";
-    error_msg[4] = "No Memory for operation";
-    error_msg[5] = "The same color name exist";
-    error_msg[6] = "The same data exist";
-    error_msg[7] = "Color not found.";
-
-    cli_usb_send_message(error_msg[ret_code], strlen(error_msg[ret_code]), true);
+    cli_usb_send_message(error_msg, strlen(error_msg), true);
 }
 
 void cli_cmd_handler(char const *usb_msg, uint8_t usb_msg_len)
@@ -68,22 +86,21 @@ static estc_ret_code_t handler_cmd_help(char const *cmd_name, char const *usb_ms
     const size_t param_num = 0;
     uint16_t params[param_num];
 
-    static char *help_msg[CLI_COMMANDS_NUMBER + 1];
     estc_ret_code_t ret_code = cli_cmd_calc_param_values(usb_msg, params, strlen(cmd_name), param_num);
+    static char *help_msg[] =
+    {
+        [0] = "\nSupport commands:",
+        [1] = "1. 'help' to see this list",
+        [2] = "2. rgb <r> <g> <b>. r, g, b: (0...255)",
+        [3] = "3. hsv <h> <s> <v>. h: (0...360); s, v: (0...100)",
+        [4] = "4. add_rgb_color <color_name> <r> <g> <b>. r, g, b: (0...255); color_name MAX length: 22",
+        [5] = "5. del_color <color_name>",
+        [6] = "6. apply_color <color_name>",
+        [7] = "7. 'list_color' to view saved colors list",
+    };
 
     if (ret_code == ESTC_SUCCESS)
     {
-        help_msg[0] = "\nSupport commands:";
-        help_msg[1] = "1. 'help' to see this list";
-        help_msg[2] = "2. rgb <r> <g> <b>. r, g, b: (0...255)";
-        help_msg[3] = "3. hsv <h> <s> <v>. h: (0...360); s, v: (0...100)";
-        help_msg[4] = "4. add_rgb_color <color_name> <r> <g> <b>. r, g, b: (0...255); color_name MAX length: 22";
-        help_msg[5] = "5. del_color <color_name>";
-        help_msg[6] = "6. apply_color <color_name>";
-        help_msg[7] = "7. 'list_color' to view saved colors list";
-
-
-
         for (size_t i = 0; i <= CLI_COMMANDS_NUMBER; ++i)
             cli_usb_send_message(help_msg[i], strlen(help_msg[i]) + 1, true);
     }
@@ -278,10 +295,10 @@ static estc_ret_code_t handler_cmd_list_color(char const *cmd_name, char const *
 
         while (color_crc_calc_rgb(&rgb[counter]) == rgb[counter].crc && counter < CLI_SAVED_COLORS_MAX_NUM)
         {
-            cmd_msg_len = snprintf(cmd_msg, cmd_msg_len, "Color %2d : RGB %3u %3u %3u : %s", \
-                                  counter + 1, rgb[counter].r, rgb[counter].g, rgb[counter].b, color_name[counter]);
+            snprintf(cmd_msg, cmd_msg_len, "Color %2d : RGB %3u %3u %3u : %s",
+                     counter + 1, rgb[counter].r, rgb[counter].g, rgb[counter].b, color_name[counter]);
 
-            cli_usb_send_message(cmd_msg, cmd_msg_len, true);
+            cli_usb_send_message(cmd_msg, strlen(cmd_msg), true);
             ++counter;
         }
     }
@@ -349,7 +366,7 @@ static size_t cli_cmd_calc_word(char const command[], char word[], size_t param_
     word[0] = '\0';
 
     if (command[param_position] != ' ')
-        return param_position = 0;
+        return 0;
 
     do
     {
@@ -357,21 +374,19 @@ static size_t cli_cmd_calc_word(char const command[], char word[], size_t param_
     } while (command[param_position] == ' ');
 
     if(isdigit((int)command[param_position]) > 0)
-        return param_position = 0;
+        return 0;
 
     while (isalnum((int)command[param_position]) > 0)
     {
         if (char_position == CLI_COLOR_NAME_MAX_LEN - 1)
-            return param_position = 0;
+            return 0;
 
         word[char_position] = command[param_position];
         ++char_position;
         ++param_position;
     }
 
-    word[char_position++] = '\0';
-
-    memset(word + char_position, 0xFF, SIZE_OF_COLOR_NAME_MAX_BYTES - char_position);
+    memset(word + char_position, '\0', SIZE_OF_COLOR_NAME_MAX_BYTES - char_position);
 
     return param_position;
 }

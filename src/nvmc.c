@@ -12,6 +12,7 @@ static uint32_t nvmc_copy_good_vals_to_new_page(uint32_t const old_page_addr, ui
 static uint32_t find_color_name_addr(uint32_t const page_start_addr, char const color_name[]);
 static bool is_free_memory_for_colors (uint32_t const page_start_addr);
 static void nvmc_write_color_name(uint32_t address, char const color_name[]);
+static void nvmc_prepair_string_for_flash(char *const dest_string, char const *const src_string, size_t const buf_len);
 
 uint32_t nvmc_flash_init()
 {
@@ -103,12 +104,15 @@ estc_ret_code_t nvmc_rgb_color_add(rgb_t const *const rgb_vals, char const color
     uint32_t active_page_start_addr = 0;
     uint32_t current_color_vals_address = 0;
     uint32_t current_color_name_address = 0;
+    char write_buffer[SIZE_OF_COLOR_NAME_MAX_BYTES];
 
     active_page_start_addr = get_active_page_start_addr(APP_DATA_START_ADDR);
     current_color_vals_address = find_first_free_pos_addr_between(active_page_start_addr + SHIFT_ADDR_COLOR_NAMES_VALS,
                                                                   active_page_start_addr + SHIFT_ADDR_LAST_RGB_VAL_LST_ADDR);
 
-    if (find_color_name_addr(active_page_start_addr, color_name) > 0)
+    nvmc_prepair_string_for_flash(write_buffer, color_name, SIZE_OF_COLOR_NAME_MAX_BYTES);
+
+    if (find_color_name_addr(active_page_start_addr, write_buffer) > 0)
         return ESTC_ERROR_SAME_DATA_NAME;
 
     if (!is_free_memory_for_colors(active_page_start_addr))
@@ -123,7 +127,7 @@ estc_ret_code_t nvmc_rgb_color_add(rgb_t const *const rgb_vals, char const color
         current_color_name_address = SHIFT_ADDR_COLOR_NAMES + new_page_start_address +
         ((current_color_vals_address - new_page_start_address - SHIFT_ADDR_COLOR_NAMES_VALS) / 4) * SIZE_OF_COLOR_NAME_MAX_BYTES;
 
-        nvmc_write_color_name(current_color_name_address, color_name);
+        nvmc_write_color_name(current_color_name_address, write_buffer);
         nrfx_nvmc_word_write(current_color_vals_address, rgb_word);
         nrfx_nvmc_page_erase(active_page_start_addr);
     }
@@ -132,7 +136,7 @@ estc_ret_code_t nvmc_rgb_color_add(rgb_t const *const rgb_vals, char const color
         current_color_name_address = SHIFT_ADDR_COLOR_NAMES + active_page_start_addr +
         ((current_color_vals_address - active_page_start_addr - SHIFT_ADDR_COLOR_NAMES_VALS) / 4) * SIZE_OF_COLOR_NAME_MAX_BYTES;
 
-        nvmc_write_color_name(current_color_name_address, color_name);
+        nvmc_write_color_name(current_color_name_address, write_buffer);
         nrfx_nvmc_word_write(current_color_vals_address, rgb_word);
     }
 
@@ -142,8 +146,10 @@ estc_ret_code_t nvmc_rgb_color_add(rgb_t const *const rgb_vals, char const color
 estc_ret_code_t nvmc_rgb_color_del(char const color_name[])
 {
     uint32_t color_addr = 0;
+    char color_name_flash[SIZE_OF_COLOR_NAME_MAX_BYTES];
 
-    color_addr = find_color_name_addr(get_active_page_start_addr(APP_DATA_START_ADDR), color_name);
+    nvmc_prepair_string_for_flash(color_name_flash, color_name, SIZE_OF_COLOR_NAME_MAX_BYTES);
+    color_addr = find_color_name_addr(get_active_page_start_addr(APP_DATA_START_ADDR), color_name_flash);
 
     if (color_addr == 0)
     {
@@ -159,7 +165,12 @@ estc_ret_code_t nvmc_rgb_color_del(char const color_name[])
 //return address of RGB values for color_name or 0 if color_name not found
 estc_ret_code_t nvmc_rgb_color_get_vals(rgb_t *const rgb_vals, char const color_name[])
 {
-    uint32_t color_addr = find_color_name_addr(get_active_page_start_addr(APP_DATA_START_ADDR), color_name);
+    uint32_t color_addr = 0;
+    char color_name_flash[SIZE_OF_COLOR_NAME_MAX_BYTES];
+
+    nvmc_prepair_string_for_flash(color_name_flash, color_name, SIZE_OF_COLOR_NAME_MAX_BYTES);
+    color_addr = find_color_name_addr(get_active_page_start_addr(APP_DATA_START_ADDR), color_name_flash);
+
     if (color_addr > 0)
     {
         color_addr = (color_addr - get_active_page_start_addr(APP_DATA_START_ADDR) - SHIFT_ADDR_COLOR_NAMES) /
@@ -414,4 +425,12 @@ static void nvmc_write_color_name(uint32_t address, char const color_name[])
 
         nrfx_nvmc_word_write(address + cur_char, color_word);
     }
+}
+
+static void nvmc_prepair_string_for_flash(char *const dest_string, char const *const src_string, size_t const buf_len)
+{
+    size_t str_len = strlen (src_string) + 1;
+
+    strcpy(dest_string, src_string);
+    memset(dest_string + str_len, 0xFF, buf_len - str_len);
 }
