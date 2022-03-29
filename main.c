@@ -11,6 +11,7 @@
 #include "nvmc.h"
 #include "cli_usb.h"
 #include "cli_cmd.h"
+#include "estc_ble.h"
 
 #include "nrfx_pwm.h"
 #include "nrf_drv_pwm.h"
@@ -20,7 +21,7 @@
 
 #define DEVICE_ID 6596      //nRF dongle ID 6596
 #define LED_TIME 1000       //LED switch on / swich off time, ms
-#define BUTTON_RTC_INSTANCE 0
+#define BUTTON_RTC_INSTANCE 2
 #define CTRL_LED_PWM_INSTANCE 0
 #define RGB_LED_PWM_INSTANCE 1
 
@@ -54,6 +55,19 @@ int main(void)
     color_ctrl_led_pwm_init(&ctrl_led_pwm);
     color_rgb_led_pwm_init(&rgb_led_pwm);
 
+    //timers_init();
+    //buttons_leds_init();
+    //power_management_init();
+    ble_stack_init();
+    gap_params_init();
+    gatt_init();
+    advertising_init();
+    services_init();
+    conn_params_init();
+
+    //application_timers_start();
+    advertising_start();
+
 #if ESTC_USB_CLI_ENABLED
     cli_usb_cdc_acm_init(cli_cmd_handler);
 #endif
@@ -70,7 +84,7 @@ int main(void)
             //NRF_LOG_INFO("sizeof %d %d", sizeof("Wrong command") / sizeof(char), sizeof(char));
             color_set_work_mode(btn_double_click_counter_get_state());
         }
-
+        //idle_state_handle();
         LOG_BACKEND_USB_PROCESS();
         NRF_LOG_PROCESS();
     }
