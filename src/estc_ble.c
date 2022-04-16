@@ -1,4 +1,5 @@
 #include "estc_ble.h"
+#include "estc_service.h"
 
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                         /**< Context for the Queued Write module.*/
@@ -8,8 +9,12 @@ static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        
 
 static ble_uuid_t m_adv_uuids[] =                                               /**< Universally unique service identifiers. */
 {
-    {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE}
+    {.uuid = BLE_UUID_DEVICE_INFORMATION_SERVICE, .type = BLE_UUID_TYPE_BLE},
+    // TODO: 5. Add ESTC service UUID to the table
+    {.uuid = ESTC_SERVICE_UUID, .type = BLE_UUID_TYPE_BLE}
 };
+
+ble_estc_service_t m_estc_service; /**< ESTC example BLE service */
 
 /**@brief Callback function for asserts in the SoftDevice.
  *
@@ -106,6 +111,8 @@ void services_init(void)
     err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
     APP_ERROR_CHECK(err_code);
 
+    err_code = estc_ble_service_init(&m_estc_service);
+    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -176,6 +183,27 @@ void application_timers_start(void)
 }
 
 
+/**@brief Function for putting the chip into sleep mode.
+ *
+ * @note This function will not return.
+ */
+static void sleep_mode_enter(void)
+{
+    ret_code_t err_code;
+
+    err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+    APP_ERROR_CHECK(err_code);
+
+    // Prepare wakeup buttons.
+    err_code = bsp_btn_ble_sleep_mode_prepare();
+    APP_ERROR_CHECK(err_code);
+
+    // Go to system-off mode (this function will not return; wakeup will cause a reset).
+    err_code = sd_power_system_off();
+    APP_ERROR_CHECK(err_code);
+}
+
+
 /**@brief Function for handling advertising events.
  *
  * @details This function will be called for advertising events which are passed to the application.
@@ -189,9 +217,14 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     switch (ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
-            NRF_LOG_INFO("Fast advertising.");
+            NRF_LOG_INFO("ADV Event: Start fast advertising");
             //err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
             //APP_ERROR_CHECK(err_code);
+            break;
+
+        case BLE_ADV_EVT_IDLE:
+            NRF_LOG_INFO("ADV Event: idle, no connectable advertising is ongoing");
+            sleep_mode_enter();
             break;
 
         default:
@@ -212,12 +245,12 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_DISCONNECTED:
-            NRF_LOG_INFO("Disconnected.");
+            NRF_LOG_INFO("Disconnected (conn_handle: %d)", p_ble_evt->evt.gap_evt.conn_handle);
             // LED indication will be changed when advertising starts.
             break;
 
         case BLE_GAP_EVT_CONNECTED:
-            NRF_LOG_INFO("Connected.");
+            NRF_LOG_INFO("Connected (conn_handle: %d)", p_ble_evt->evt.gap_evt.conn_handle);
             //err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
@@ -227,7 +260,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
         {
-            NRF_LOG_DEBUG("PHY update request.");
+            NRF_LOG_DEBUG("PHY update request (conn_handle: %d)", p_ble_evt->evt.gap_evt.conn_handle);
             ble_gap_phys_t const phys =
             {
                 .rx_phys = BLE_GAP_PHY_AUTO,
@@ -239,7 +272,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GATTC_EVT_TIMEOUT:
             // Disconnect on GATT Client timeout event.
-            NRF_LOG_DEBUG("GATT Client Timeout.");
+            NRF_LOG_DEBUG("GATT Client Timeout (conn_handle: %d)", p_ble_evt->evt.gattc_evt.conn_handle);
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             APP_ERROR_CHECK(err_code);
@@ -247,7 +280,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GATTS_EVT_TIMEOUT:
             // Disconnect on GATT Server timeout event.
-            NRF_LOG_DEBUG("GATT Server Timeout.");
+            NRF_LOG_DEBUG("GATT Server Timeout (conn_handle: %d)", p_ble_evt->evt.gatts_evt.conn_handle);
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             APP_ERROR_CHECK(err_code);
@@ -296,6 +329,10 @@ void bsp_event_handler(bsp_event_t event)
 
     switch (event)
     {
+        case BSP_EVENT_SLEEP:
+            sleep_mode_enter();
+            break; // BSP_EVENT_SLEEP
+
         case BSP_EVENT_DISCONNECT:
             err_code = sd_ble_gap_disconnect(m_conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -322,8 +359,12 @@ void advertising_init(void)
     init.advdata.name_type               = BLE_ADVDATA_SHORT_NAME;
     init.advdata.include_appearance      = true;
     init.advdata.flags                   = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
-    init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
-    init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
+
+    // TODO: 6. Consider moving the device characteristics to the Scan Response if necessary
+    //init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
+    //init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
+    init.advdata.uuids_more_available.uuid_cnt = 1;
+    init.advdata.uuids_more_available.p_uuids = m_adv_uuids + 1;
 
     init.config.ble_adv_fast_enabled  = true;
     init.config.ble_adv_fast_interval = APP_ADV_INTERVAL;
@@ -342,12 +383,15 @@ void advertising_init(void)
 
     // TODO: Add more data to the scan response data
     init.srdata.name_type = BLE_ADVDATA_FULL_NAME;
-    //ble_advdata_manuf_data_t response_data;
-    //uint8_t resp_data[] = "rd";
-    //response_data.data.p_data = resp_data;
-    //response_data.data.size = sizeof(resp_data);
-    //response_data.company_identifier = 0x004C;
-    //init.srdata.p_manuf_specific_data = &response_data;
+    ble_advdata_manuf_data_t response_data;
+    uint8_t resp_data[] = "rd";
+    response_data.data.p_data = resp_data;
+    response_data.data.size = sizeof(resp_data);
+    response_data.company_identifier = 0x004C;
+    init.srdata.p_manuf_specific_data = &response_data;
+
+    init.srdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
+    init.srdata.uuids_complete.p_uuids  = m_adv_uuids;
 
     init.evt_handler = on_adv_evt;
 

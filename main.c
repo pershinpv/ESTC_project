@@ -12,6 +12,7 @@
 #include "cli_usb.h"
 #include "cli_cmd.h"
 #include "estc_ble.h"
+#include "estc_service.h"
 
 #include "nrfx_pwm.h"
 #include "nrf_drv_pwm.h"
@@ -55,7 +56,7 @@ int main(void)
     color_ctrl_led_pwm_init(&ctrl_led_pwm);
     color_rgb_led_pwm_init(&rgb_led_pwm);
 
-    //timers_init();
+    timers_init();
     //buttons_leds_init();
     //power_management_init();
     ble_stack_init();
