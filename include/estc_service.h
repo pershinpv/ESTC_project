@@ -40,13 +40,27 @@
 #define ESTC_BASE_UUID { 0x6C, 0x65, 0x76, 0x61, 0x50, 0x6E, /* - */ 0x69, 0x68, /* - */ 0x73, 0x72, /* - */ 0x65, 0x50, /* - */ 0x00, 0x00, 0x00, 0x00 } // UUID: 0000xxxx-5065-7273-6869-6E506176656C
 
 // TODO: 2. Pick a random service 16-bit UUID and define it:
- #define ESTC_SERVICE_UUID 0x5601
+#define ESTC_SERVICE_UUID 0x5601
+
+ // TODO: 3. Pick a characteristic UUID and define it:
+#define ESTC_GATT_CHAR_1_UUID 0xABC1
+#define ESTC_GATT_CHAR_2_UUID 0xABC2
 
 typedef struct
 {
     uint16_t service_handle;
+    uint16_t connection_handle;
+
+    // TODO: 6.3. Add handles for characterstic (type: ble_gatts_char_handles_t)
+    ble_gatts_char_handles_t characteristic_handle;
+    ble_gatts_char_handles_t characteristic_2_handle;
+
 } ble_estc_service_t;
 
 ret_code_t estc_ble_service_init(ble_estc_service_t *service);
+
+void estc_ble_service_on_ble_event(const ble_evt_t *ble_evt, void *ctx);
+
+void estc_update_characteristic_1_value(ble_estc_service_t *service, int32_t *value);
 
 #endif /* ESTC_SERVICE_H__ */
