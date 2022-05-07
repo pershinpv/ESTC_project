@@ -170,16 +170,27 @@ void conn_params_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+APP_TIMER_DEF(timer_id);
+
+static void repeated_timer_handler(void * p_context)
+{
+    estc_update_characteristic_1_value(&m_estc_service);
+}
 
 /**@brief Function for starting timers.
  */
 void application_timers_start(void)
 {
-    /* YOUR_JOB: Start your timers. below is an example of how to start a timer.
-       ret_code_t err_code;
-       err_code = app_timer_start(m_app_timer_id, TIMER_INTERVAL, NULL);
-       APP_ERROR_CHECK(err_code); */
 
+        //YOUR_JOB: Start your timers. below is an example of how to start a timer.
+        ret_code_t err_code = NRF_SUCCESS;
+        UNUSED_PARAMETER (timer_id);
+
+        err_code = app_timer_create(&timer_id, APP_TIMER_MODE_REPEATED, repeated_timer_handler);
+
+        err_code = app_timer_start(timer_id, APP_TIMER_TICKS(1000), NULL);
+
+        APP_ERROR_CHECK(err_code);
 }
 
 

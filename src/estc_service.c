@@ -36,8 +36,12 @@
 #include "ble.h"
 #include "ble_gatts.h"
 #include "ble_srv_common.h"
+#include "color.h"
 
-static ret_code_t estc_ble_add_characteristics(ble_estc_service_t *service);
+static rgb_t rgb_vals;
+
+static ret_code_t estc_ble_add_characteristics(ble_estc_service_t *service, uint16_t c_uuid, ble_gatt_char_props_t const *c_props,
+                                               uint8_t *c_value, ble_gatts_char_handles_t *c_handle);
 
 ret_code_t estc_ble_service_init(ble_estc_service_t *service)
 {
@@ -62,10 +66,36 @@ ret_code_t estc_ble_service_init(ble_estc_service_t *service)
     // NRF_LOG_DEBUG("%s:%d | Service UUID type: 0x%02x", __FUNCTION__, __LINE__, service_uuid.type);
     // NRF_LOG_DEBUG("%s:%d | Service handle: 0x%04x", __FUNCTION__, __LINE__, service->service_handle);
 
-    return estc_ble_add_characteristics(service);
+    ble_gatt_char_props_t c_props;
+    color_value_get_rgb(&rgb_vals);
+    uint8_t *c_value = (uint8_t *) &rgb_vals;
+
+    memset(&c_props, 0, sizeof(c_props));
+    c_props.read = 1;
+    c_props.write = 1;
+    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_1_UUID, &c_props, c_value, &service->characteristic_1_handle);
+    APP_ERROR_CHECK(error_code);
+
+    memset(&c_props, 0, sizeof(c_props));
+    c_props.read = 1;
+    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_2_UUID, &c_props, c_value, &service->characteristic_2_handle);
+    APP_ERROR_CHECK(error_code);
+
+    memset(&c_props, 0, sizeof(c_props));
+    c_props.notify = 1;
+    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_Ntf_UUID, &c_props, c_value, &service->characteristic_Ntf_handle);
+    APP_ERROR_CHECK(error_code);
+
+    memset(&c_props, 0, sizeof(c_props));
+    c_props.indicate = 1;
+    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_Ind_UUID, &c_props, c_value, &service->characteristic_Idn_handle);
+    APP_ERROR_CHECK(error_code);
+
+    return error_code;
 }
 
-static ret_code_t estc_ble_add_characteristics(ble_estc_service_t *service)
+static ret_code_t estc_ble_add_characteristics(ble_estc_service_t *service, uint16_t c_uuid, ble_gatt_char_props_t const *c_props,
+                                               uint8_t *c_value, ble_gatts_char_handles_t *c_handle)
 {
     ret_code_t error_code = NRF_SUCCESS;
 
@@ -74,29 +104,19 @@ static ret_code_t estc_ble_add_characteristics(ble_estc_service_t *service)
 
     ble_uuid_t char_uuid =
     {
-        .uuid = ESTC_GATT_CHAR_1_UUID,
-        .type = BLE_UUID_TYPE_VENDOR_BEGIN,
-    };
-
-    ble_uuid_t char_2_uuid =
-    {
-        .uuid = ESTC_GATT_CHAR_2_UUID,
+        .uuid = c_uuid,
         .type = BLE_UUID_TYPE_VENDOR_BEGIN,
     };
 
     error_code = sd_ble_uuid_vs_add(&base_uid, &char_uuid.type);
     APP_ERROR_CHECK(error_code);
 
-    // TODO: 6.5. Configure Characteristic metadata (enable read and write)
-    ble_gatts_char_md_t char_md     = { 0 }, char_2_md = { 0 };
-    char_md.char_props.read         = 1;
-    char_md.char_props.write        = 1;
-
-    char_2_md.char_props.read         = 1;
-    char_2_md.char_props.broadcast    = 1;
+    // TODO: 6.5. Configure Characteristic metadata
+    ble_gatts_char_md_t char_md     = { 0 };
+    char_md.char_props = *c_props;
 
     //Add user description
-    uint8_t estc_desc[]             = "ESTC GATT char test";
+    uint8_t estc_desc[]             = "ESTC Color";
     char_md.p_char_user_desc        = estc_desc;
     char_md.char_user_desc_size     = sizeof(estc_desc);
     char_md.char_user_desc_max_size = sizeof(estc_desc);
@@ -110,31 +130,48 @@ static ret_code_t estc_ble_add_characteristics(ble_estc_service_t *service)
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&attr_md.write_perm);
 
     // TODO: 6.2. Configure the characteristic value attribute (set the UUID and metadata)
-    ble_gatts_attr_t attr_char_value = { 0 }, attr_char_2_value = { 0 };
+    ble_gatts_attr_t attr_char_value = { 0 };
 
     attr_char_value.p_uuid      = &char_uuid;
     attr_char_value.p_attr_md   = &attr_md;
 
-    attr_char_2_value.p_uuid    = &char_2_uuid;
-    attr_char_2_value.p_attr_md = &attr_md;
-
     // TODO: 6.7. Set characteristic length in number of bytes in attr_char_value structure
-    attr_char_value.init_len    = 1;
-    attr_char_value.max_len     = 1;
+    attr_char_value.init_len    = sizeof(rgb_t);
+    attr_char_value.max_len     = sizeof(rgb_t);
 
-    attr_char_2_value.init_len  = 1;
-    attr_char_2_value.max_len   = 1;
-
-    uint8_t value = 127;
-    attr_char_value.p_value     = &value;
-    attr_char_2_value.p_value   = &value;
+    attr_char_value.p_value     = c_value;
 
     // TODO: 6.4. Add new characteristic to the service using `sd_ble_gatts_characteristic_add`
-    error_code = sd_ble_gatts_characteristic_add(service->service_handle, &char_md, &attr_char_value, &service->characteristic_handle);
-    APP_ERROR_CHECK(error_code);
-
-    error_code = sd_ble_gatts_characteristic_add(service->service_handle, &char_2_md, &attr_char_2_value, &service->characteristic_2_handle);
+    error_code = sd_ble_gatts_characteristic_add(service->service_handle, &char_md, &attr_char_value, c_handle);
     APP_ERROR_CHECK(error_code);
 
     return NRF_SUCCESS;
+}
+
+void estc_update_characteristic_1_value(ble_estc_service_t *service)
+{
+    ret_code_t error_code = NRF_SUCCESS;
+    color_value_get_rgb(&rgb_vals);
+
+    ble_gatts_value_t gat_value = {sizeof(rgb_t), 0, (uint8_t *) &rgb_vals};
+
+    NRF_LOG_INFO("conn handle %d char handle %d value ptr %d", service->connection_handle, service->characteristic_Idn_handle.value_handle, &gat_value);
+
+    error_code = sd_ble_gatts_value_set(service->connection_handle, service->characteristic_Ntf_handle.value_handle, &gat_value);
+    memset(&gat_value, 0, sizeof(gat_value));
+
+    NRF_LOG_INFO("Char update err_code %d", error_code);
+
+    ble_gatts_hvx_params_t params;
+
+    memset(&params, 0, sizeof(params));
+    params.handle = service->characteristic_Ntf_handle.value_handle;
+    params.type   = BLE_GATT_HVX_NOTIFICATION;
+    params.offset = gat_value.offset;
+    params.p_len  = &gat_value.len;
+    params.p_data = gat_value.p_value;
+
+    error_code = sd_ble_gatts_hvx(service->connection_handle, &params);
+
+    APP_ERROR_CHECK(error_code);
 }

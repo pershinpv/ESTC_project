@@ -38,6 +38,7 @@ void color_rgb_led_pwm_init(nrfx_pwm_t * led_pwm_inst_ptr);
 void color_set_work_mode(hsv_change_mode_t work_mode);
 void color_restore_rgb_last_state();
 void color_value_set_rgb(rgb_t *rgb_vals);
+void color_value_get_rgb(rgb_t *rgb_vals);
 void color_value_set_hsv(hsv_t *hsv_vals);
 bool color_rgb_values_validate(rgb_t const *const rgb_vals);
 

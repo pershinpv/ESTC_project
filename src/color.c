@@ -121,6 +121,14 @@ void color_value_set_rgb(rgb_t *rgb_vals)
     rgb_to_hsv(&color_hsv, &color_rgb);
 }
 
+void color_value_get_rgb(rgb_t *rgb_vals)
+{
+    rgb_vals->r = color_rgb.r;
+    rgb_vals->g = color_rgb.g;
+    rgb_vals->b =color_rgb.b;
+    rgb_vals->crc = color_rgb.crc;
+}
+
 void color_value_set_hsv(hsv_t *hsv_vals)
 {
     color_hsv.h = hsv_vals->h;

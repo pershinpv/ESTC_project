@@ -66,7 +66,7 @@ int main(void)
     services_init();
     conn_params_init();
 
-    //application_timers_start();
+    application_timers_start();
     advertising_start();
 
 #if ESTC_USB_CLI_ENABLED
