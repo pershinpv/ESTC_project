@@ -3,8 +3,8 @@
 #include "macro.h"
 #include "nvmc.h"
 
-static hsv_t color_hsv;
-static rgb_t color_rgb;
+static hsv_t color_hsv = {0,255,1};
+static rgb_t color_rgb = {1,0,1,2};
 
 void color_hsv_to_rgb(hsv_t const *const hsv, rgb_t *const rgb)
 {
@@ -137,6 +137,13 @@ void color_value_set_hsv(hsv_t *hsv_vals)
     color_hsv_to_rgb(&color_hsv, &color_rgb);
 }
 
+void color_value_get_hsv(hsv_t *hsv_vals)
+{
+    hsv_vals->h = color_hsv.h;
+    hsv_vals->s = color_hsv.s;
+    hsv_vals->v = color_hsv.v;
+}
+
 void color_restore_rgb_last_state()
 {
     nvmc_read_rgb_actual_values(&color_rgb);
@@ -264,8 +271,8 @@ void color_set_work_mode(hsv_change_mode_t work_mode)
             case HSV_CHANGE_NO:
                 ctrl_led_seq.values.p_common = ctrl_led_seq_vals_off;
                 ctrl_led_seq.length = NRF_PWM_VALUES_LENGTH(ctrl_led_seq_vals_off);
-                nvmc_write_rgb_actual_values(&color_rgb);
-                nvmc_read_rgb_actual_values_for_log();
+                //nvmc_write_rgb_actual_values(&color_rgb);
+                //nvmc_read_rgb_actual_values_for_log();
                 break;
 
             case HSV_CHANGE_H:

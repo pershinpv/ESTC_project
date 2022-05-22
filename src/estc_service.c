@@ -39,6 +39,7 @@
 #include "color.h"
 
 static rgb_t rgb_vals;
+static hsv_t hsv_vals;
 
 static ret_code_t estc_ble_add_characteristics(ble_estc_service_t *service, uint16_t c_uuid, ble_gatt_char_props_t const *c_props,
                                                uint8_t *c_value, ble_gatts_char_handles_t *c_handle);
@@ -68,27 +69,30 @@ ret_code_t estc_ble_service_init(ble_estc_service_t *service)
 
     ble_gatt_char_props_t c_props;
     color_value_get_rgb(&rgb_vals);
-    uint8_t *c_value = (uint8_t *) &rgb_vals;
+    color_value_get_hsv(&hsv_vals);
+
+    uint8_t *rgb_value = (uint8_t *) &rgb_vals;
+    uint8_t *hsv_value = (uint8_t *) &hsv_vals;
 
     memset(&c_props, 0, sizeof(c_props));
     c_props.read = 1;
     c_props.write = 1;
-    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_1_UUID, &c_props, c_value, &service->characteristic_1_handle);
+    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_1_UUID, &c_props, rgb_value, &service->characteristic_1_handle);
     APP_ERROR_CHECK(error_code);
 
     memset(&c_props, 0, sizeof(c_props));
     c_props.read = 1;
-    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_2_UUID, &c_props, c_value, &service->characteristic_2_handle);
+    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_2_UUID, &c_props, hsv_value, &service->characteristic_2_handle);
     APP_ERROR_CHECK(error_code);
 
     memset(&c_props, 0, sizeof(c_props));
     c_props.notify = 1;
-    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_Ntf_UUID, &c_props, c_value, &service->characteristic_Ntf_handle);
+    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_Ntf_UUID, &c_props, hsv_value, &service->characteristic_Ntf_handle);
     APP_ERROR_CHECK(error_code);
 
     memset(&c_props, 0, sizeof(c_props));
     c_props.indicate = 1;
-    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_Ind_UUID, &c_props, c_value, &service->characteristic_Idn_handle);
+    error_code = estc_ble_add_characteristics(service, ESTC_GATT_CHAR_Ind_UUID, &c_props, rgb_value, &service->characteristic_Idn_handle);
     APP_ERROR_CHECK(error_code);
 
     return error_code;
@@ -148,21 +152,18 @@ static ret_code_t estc_ble_add_characteristics(ble_estc_service_t *service, uint
     return NRF_SUCCESS;
 }
 
-void estc_update_characteristic_1_value(ble_estc_service_t *service)
+void estc_notify_characteristic_value(ble_estc_service_t const *service)
 {
     ret_code_t error_code = NRF_SUCCESS;
-    color_value_get_rgb(&rgb_vals);
+    ble_gatts_value_t gat_value = {0};
+    ble_gatts_hvx_params_t params = {0};
 
-    ble_gatts_value_t gat_value = {sizeof(rgb_t), 0, (uint8_t *) &rgb_vals};
+    UNUSED_PARAMETER(error_code);
+    color_value_get_hsv(&hsv_vals);
 
-    NRF_LOG_INFO("conn handle %d char handle %d value ptr %d", service->connection_handle, service->characteristic_Idn_handle.value_handle, &gat_value);
-
-    error_code = sd_ble_gatts_value_set(service->connection_handle, service->characteristic_Ntf_handle.value_handle, &gat_value);
-    memset(&gat_value, 0, sizeof(gat_value));
-
-    NRF_LOG_INFO("Char update err_code %d", error_code);
-
-    ble_gatts_hvx_params_t params;
+    gat_value.len = sizeof(hsv_t);
+    gat_value.p_value = (uint8_t *) &hsv_vals;
+    error_code = sd_ble_gatts_value_set(service->connection_handle, service->characteristic_2_handle.value_handle, &gat_value);
 
     memset(&params, 0, sizeof(params));
     params.handle = service->characteristic_Ntf_handle.value_handle;
@@ -173,5 +174,40 @@ void estc_update_characteristic_1_value(ble_estc_service_t *service)
 
     error_code = sd_ble_gatts_hvx(service->connection_handle, &params);
 
-    APP_ERROR_CHECK(error_code);
+    if (error_code != NRF_SUCCESS)
+    {
+        NRF_LOG_INFO("Ntf sd_ble_gatts_hvx err_code %d", error_code);
+        APP_ERROR_CHECK(error_code);
+    }
+}
+
+void estc_indicate_characteristic_value(ble_estc_service_t const *service)
+{
+    ret_code_t error_code = NRF_SUCCESS;
+    ble_gatts_value_t gat_value = {0};
+    ble_gatts_hvx_params_t params = {0};
+
+    UNUSED_PARAMETER(error_code);
+    color_value_get_rgb(&rgb_vals);
+
+    gat_value.len = sizeof(rgb_t);
+    gat_value.p_value = (uint8_t *) &rgb_vals;
+    error_code = sd_ble_gatts_value_set(service->connection_handle, service->characteristic_1_handle.value_handle, &gat_value);
+
+    memset(&params, 0, sizeof(params));
+    params.handle = service->characteristic_Idn_handle.value_handle;
+    params.type   = BLE_GATT_HVX_INDICATION;
+    params.offset = gat_value.offset;
+    params.p_len  = &gat_value.len;
+    params.p_data = gat_value.p_value;
+
+    error_code = sd_ble_gatts_hvx(service->connection_handle, &params);
+
+    if (error_code != NRF_SUCCESS)
+    {
+        NRF_LOG_INFO("Idn sd_ble_gatts_hvx err_code %d", error_code);
+
+        if (error_code != NRF_ERROR_BUSY)
+            APP_ERROR_CHECK(error_code);
+    }
 }

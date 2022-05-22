@@ -65,6 +65,7 @@ ret_code_t estc_ble_service_init(ble_estc_service_t *service);
 
 void estc_ble_service_on_ble_event(const ble_evt_t *ble_evt, void *ctx);
 
-void estc_update_characteristic_1_value(ble_estc_service_t *service);
+void estc_notify_characteristic_value(ble_estc_service_t const *service);
+void estc_indicate_characteristic_value(ble_estc_service_t const *service);
 
 #endif /* ESTC_SERVICE_H__ */

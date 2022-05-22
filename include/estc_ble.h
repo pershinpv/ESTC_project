@@ -55,7 +55,18 @@
 #define NEXT_CONN_PARAMS_UPDATE_DELAY   APP_TIMER_TICKS(30000)                  /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT    3                                       /**< Number of attempts before giving up the connection parameter negotiation. */
 
+#define NOTIFICATION_UPDATE_TIME        999                                     /** Time between notifications, milliseconds. */
+#define INDICATION_UPDATE_TIME          777                                     /** Time between indications, milliseconds. */
+
 #define DEAD_BEEF                       0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
+
+enum ESTC_BLE_CONN_STATUS
+{
+    ESTC_BLE_DISCONNECTED,
+    ESTC_BLE_CONNECTED,
+    ESTC_BLE_NTF_EN,
+    ESTC_BLE_IDN_EN
+};
 
 void timers_init(void);
 void buttons_leds_init(void);
@@ -66,7 +77,7 @@ void gatt_init(void);
 void advertising_init(void);
 void services_init(void);
 void conn_params_init(void);
-void application_timers_start(void);
+void estc_ble_timers_init(void);
 void advertising_start(void);
 void idle_state_handle(void);
 #endif

@@ -16,6 +16,18 @@ static ble_uuid_t m_adv_uuids[] =                                               
 
 ble_estc_service_t m_estc_service; /**< ESTC example BLE service */
 
+APP_TIMER_DEF(timer_Ntf_id);
+APP_TIMER_DEF(timer_Idn_id);
+
+static void on_conn_params_evt(ble_conn_params_evt_t * p_evt);
+static void nrf_qwr_error_handler(uint32_t nrf_error);
+static void conn_params_error_handler(uint32_t nrf_error);
+static void timer_handler_Ntf(void * p_context);
+static void timer_handler_Idn(void * p_context);
+static void on_adv_evt(ble_adv_evt_t ble_adv_evt);
+static void estc_ble_on_write_evt(ble_evt_t const * p_ble_evt);
+static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context);
+
 /**@brief Callback function for asserts in the SoftDevice.
  *
  * @details This function will be called in case of an assert in the SoftDevice.
@@ -42,7 +54,6 @@ void timers_init(void)
     ret_code_t err_code = app_timer_init();
     APP_ERROR_CHECK(err_code);
 }
-
 
 /**@brief Function for the GAP initialization.
  *
@@ -96,6 +107,7 @@ void gatt_init(void)
 static void nrf_qwr_error_handler(uint32_t nrf_error)
 {
     APP_ERROR_HANDLER(nrf_error);
+    NRF_LOG_INFO("QWR error: %d", nrf_error);
 }
 
 /**@brief Function for initializing services that will be used by the application.
@@ -135,6 +147,8 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
         err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_CONN_INTERVAL_UNACCEPTABLE);
         APP_ERROR_CHECK(err_code);
     }
+
+    NRF_LOG_INFO("conn_param_evt evt_type: %d", p_evt->evt_type);
 }
 
 
@@ -145,6 +159,7 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
 static void conn_params_error_handler(uint32_t nrf_error)
 {
     APP_ERROR_HANDLER(nrf_error);
+    NRF_LOG_INFO("conn_params_error nrf_error: %d", nrf_error);
 }
 
 
@@ -170,35 +185,11 @@ void conn_params_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-APP_TIMER_DEF(timer_id);
-
-static void repeated_timer_handler(void * p_context)
-{
-    estc_update_characteristic_1_value(&m_estc_service);
-}
-
-/**@brief Function for starting timers.
- */
-void application_timers_start(void)
-{
-
-        //YOUR_JOB: Start your timers. below is an example of how to start a timer.
-        ret_code_t err_code = NRF_SUCCESS;
-        UNUSED_PARAMETER (timer_id);
-
-        err_code = app_timer_create(&timer_id, APP_TIMER_MODE_REPEATED, repeated_timer_handler);
-
-        err_code = app_timer_start(timer_id, APP_TIMER_TICKS(1000), NULL);
-
-        APP_ERROR_CHECK(err_code);
-}
-
-
 /**@brief Function for putting the chip into sleep mode.
  *
  * @note This function will not return.
  */
-static void sleep_mode_enter(void)
+void sleep_mode_enter(void)
 {
     ret_code_t err_code;
 
@@ -214,6 +205,57 @@ static void sleep_mode_enter(void)
     APP_ERROR_CHECK(err_code);
 }
 
+static void timer_handler_Ntf(void * p_context)
+{
+    estc_notify_characteristic_value(&m_estc_service);
+}
+
+static void timer_handler_Idn(void * p_context)
+{
+    estc_indicate_characteristic_value(&m_estc_service);
+}
+
+/**@brief Function for starting timers.
+ */
+void estc_ble_timers_init(void)
+{
+        //YOUR_JOB: Start your timers. below is an example of how to start a timer.
+        app_timer_create(&timer_Ntf_id, APP_TIMER_MODE_REPEATED, timer_handler_Ntf);
+        app_timer_create(&timer_Idn_id, APP_TIMER_MODE_REPEATED, timer_handler_Idn);
+}
+
+static void estc_ble_on_write_evt(ble_evt_t const * p_ble_evt)
+{
+    ble_gatts_evt_write_t const * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
+
+    if ((p_evt_write->handle == m_estc_service.characteristic_Ntf_handle.cccd_handle) && (p_evt_write->len == 2))
+    {
+        if (ble_srv_is_notification_enabled(p_evt_write->data) == true)
+        {
+            app_timer_start(timer_Ntf_id, APP_TIMER_TICKS(NOTIFICATION_UPDATE_TIME), NULL);
+            NRF_LOG_INFO("Notification timer started");
+        }
+        else
+        {
+            app_timer_stop(timer_Ntf_id);
+            NRF_LOG_INFO("Notification timer stoped");
+        }
+    }
+
+    if ((p_evt_write->handle == m_estc_service.characteristic_Idn_handle.cccd_handle) && (p_evt_write->len == 2))
+    {
+        if (ble_srv_is_indication_enabled(p_evt_write->data) == true)
+        {
+            app_timer_start(timer_Idn_id, APP_TIMER_TICKS(INDICATION_UPDATE_TIME), NULL);
+            NRF_LOG_INFO("Indication timer started");
+        }
+        else
+        {
+            app_timer_stop(timer_Idn_id);
+            NRF_LOG_INFO("Indication timer stoped");
+        }
+    }
+}
 
 /**@brief Function for handling advertising events.
  *
@@ -235,14 +277,13 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 
         case BLE_ADV_EVT_IDLE:
             NRF_LOG_INFO("ADV Event: idle, no connectable advertising is ongoing");
-            sleep_mode_enter();
+            //sleep_mode_enter();
             break;
 
         default:
             break;
     }
 }
-
 
 /**@brief Function for handling BLE events.
  *
@@ -255,7 +296,12 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
     switch (p_ble_evt->header.evt_id)
     {
+        case BLE_GATTS_EVT_WRITE:
+            estc_ble_on_write_evt(p_ble_evt);
+            break;
+
         case BLE_GAP_EVT_DISCONNECTED:
+            m_conn_handle = BLE_CONN_HANDLE_INVALID;
             NRF_LOG_INFO("Disconnected (conn_handle: %d)", p_ble_evt->evt.gap_evt.conn_handle);
             // LED indication will be changed when advertising starts.
             break;
@@ -299,6 +345,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         default:
             // No implementation needed.
+            //NRF_LOG_DEBUG("Unknown ble_evt %d", p_ble_evt->header.evt_id);
             break;
     }
 }
@@ -324,11 +371,12 @@ void ble_stack_init(void)
     // Enable BLE stack.
     err_code = nrf_sdh_ble_enable(&ram_start);
     APP_ERROR_CHECK(err_code);
+    NRF_LOG_INFO("nrf_sdh_ble_enable err_code %d", err_code);
 
     // Register a handler for BLE events.
     NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
+    NRF_LOG_INFO("ble_stack_init m_ble_observer %d", m_ble_observer.handler);
 }
-
 
 /**@brief Function for handling events from the BSP module.
  *
@@ -341,7 +389,7 @@ void bsp_event_handler(bsp_event_t event)
     switch (event)
     {
         case BSP_EVENT_SLEEP:
-            sleep_mode_enter();
+            //sleep_mode_enter();
             break; // BSP_EVENT_SLEEP
 
         case BSP_EVENT_DISCONNECT:
