@@ -10,6 +10,10 @@ $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
  LINKER_SCRIPT  := estc_adverts_gcc_nrf52.ld
 
 # Source files common to all targets
+ifdef NRF_FSTORAGE_ENABLED
+elseif
+endif
+
 SRC_FILES += \
  $(PROJ_DIR)/main.c \
  $(PROJ_DIR)/src/log.c \
@@ -94,7 +98,6 @@ SRC_FILES += \
  $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_gpiote.c \
  $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_pwm.c \
  $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_rtc.c \
- $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_nvmc.c \
  \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_frontend.c \
  $(SDK_ROOT)/components/libraries/log/src/nrf_log_str_formatter.c \
@@ -118,6 +121,8 @@ SRC_FILES += \
  $(SDK_ROOT)/components/ble/common/ble_conn_params.c \
  $(SDK_ROOT)/components/ble/common/ble_advdata.c \
  $(SDK_ROOT)/components/ble/ble_advertising/ble_advertising.c \
+ $(PROJ_DIR)/src/estc_fstorage.c \
+ #$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_nvmc.c\
 
 # Include folders common to all targets
 INC_FOLDERS += \

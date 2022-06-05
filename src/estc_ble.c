@@ -14,10 +14,14 @@ static ble_uuid_t m_adv_uuids[] =                                               
     {.uuid = ESTC_SERVICE_UUID, .type = BLE_UUID_TYPE_BLE}
 };
 
-ble_estc_service_t m_estc_service; /**< ESTC example BLE service */
+ble_estc_service_t m_estc_service = {0}; /**< ESTC example BLE service */
 
+APP_TIMER_DEF(timer_Upd_id);
 APP_TIMER_DEF(timer_Ntf_id);
 APP_TIMER_DEF(timer_Idn_id);
+
+static uint8_t  notification_request_counter = 0;
+static uint8_t  indication_request_counter = 0;
 
 static void on_conn_params_evt(ble_conn_params_evt_t * p_evt);
 static void nrf_qwr_error_handler(uint32_t nrf_error);
@@ -127,7 +131,6 @@ void services_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-
 /**@brief Function for handling the Connection Parameters Module.
  *
  * @details This function will be called for all events in the Connection Parameters Module which
@@ -147,10 +150,7 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
         err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_CONN_INTERVAL_UNACCEPTABLE);
         APP_ERROR_CHECK(err_code);
     }
-
-    NRF_LOG_INFO("conn_param_evt evt_type: %d", p_evt->evt_type);
 }
-
 
 /**@brief Function for handling a Connection Parameters error.
  *
@@ -159,7 +159,6 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
 static void conn_params_error_handler(uint32_t nrf_error)
 {
     APP_ERROR_HANDLER(nrf_error);
-    NRF_LOG_INFO("conn_params_error nrf_error: %d", nrf_error);
 }
 
 
@@ -193,33 +192,38 @@ void sleep_mode_enter(void)
 {
     ret_code_t err_code;
 
-    err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-    APP_ERROR_CHECK(err_code);
+    //err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+    //APP_ERROR_CHECK(err_code);
 
     // Prepare wakeup buttons.
-    err_code = bsp_btn_ble_sleep_mode_prepare();
-    APP_ERROR_CHECK(err_code);
+    //err_code = bsp_btn_ble_sleep_mode_prepare();
+    //APP_ERROR_CHECK(err_code);
 
     // Go to system-off mode (this function will not return; wakeup will cause a reset).
     err_code = sd_power_system_off();
     APP_ERROR_CHECK(err_code);
 }
 
+static void timer_handler_Upd(void * p_context)
+{
+    estc_ble_characteristic_value_update(&m_estc_service);
+}
+
 static void timer_handler_Ntf(void * p_context)
 {
-    estc_notify_characteristic_value(&m_estc_service);
+    estc_ble_characteristic_value_notify(&m_estc_service);
 }
 
 static void timer_handler_Idn(void * p_context)
 {
-    estc_indicate_characteristic_value(&m_estc_service);
+    estc_ble_characteristic_value_indicate(&m_estc_service);
 }
-
 /**@brief Function for starting timers.
  */
 void estc_ble_timers_init(void)
 {
         //YOUR_JOB: Start your timers. below is an example of how to start a timer.
+        app_timer_create(&timer_Upd_id, APP_TIMER_MODE_REPEATED, timer_handler_Upd);
         app_timer_create(&timer_Ntf_id, APP_TIMER_MODE_REPEATED, timer_handler_Ntf);
         app_timer_create(&timer_Idn_id, APP_TIMER_MODE_REPEATED, timer_handler_Idn);
 }
@@ -228,32 +232,66 @@ static void estc_ble_on_write_evt(ble_evt_t const * p_ble_evt)
 {
     ble_gatts_evt_write_t const * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
 
-    if ((p_evt_write->handle == m_estc_service.characteristic_Ntf_handle.cccd_handle) && (p_evt_write->len == 2))
+    for (size_t i = 0; i < m_estc_service.char_qty; ++i)
     {
-        if (ble_srv_is_notification_enabled(p_evt_write->data) == true)
+        if ((p_evt_write->handle == m_estc_service.characteristic[i].c_handle.value_handle) && (p_evt_write->len > 0))
         {
-            app_timer_start(timer_Ntf_id, APP_TIMER_TICKS(NOTIFICATION_UPDATE_TIME), NULL);
-            NRF_LOG_INFO("Notification timer started");
+            if (m_estc_service.characteristic[i].c_props.write == 1 && p_evt_write->len == m_estc_service.characteristic[i].c_len)
+                estc_ble_characteristic_value_incoming_update(i, (uint8_t*) p_evt_write->data);
+            NRF_LOG_INFO("Characteristic value update request. Data length is %d bytes.", p_evt_write->len);
+            return;
         }
-        else
+
+        if ((p_evt_write->handle == m_estc_service.characteristic[i].c_handle.cccd_handle) && (p_evt_write->len == 2))
         {
-            app_timer_stop(timer_Ntf_id);
-            NRF_LOG_INFO("Notification timer stoped");
+            if (ble_srv_is_notification_enabled(p_evt_write->data) != m_estc_service.characteristic[i].is_notification_en)
+            {
+                m_estc_service.characteristic[i].is_notification_en ^= true;
+                notification_request_counter += m_estc_service.characteristic[i].is_notification_en ? 1 : -1;
+
+                if (notification_request_counter == 0)
+                {
+                    app_timer_stop(timer_Ntf_id);
+                    NRF_LOG_INFO("Notification timer stopped");
+                }
+                else if (notification_request_counter == 1 && m_estc_service.characteristic[i].is_notification_en)
+                {
+                    app_timer_start(timer_Ntf_id, APP_TIMER_TICKS(NOTIFICATION_UPDATE_TIME), NULL);
+                    NRF_LOG_INFO("Notification timer started");
+                }
+                return;
+            }
+
+            if (ble_srv_is_indication_enabled(p_evt_write->data) != m_estc_service.characteristic[i].is_indication_en)
+            {
+                m_estc_service.characteristic[i].is_indication_en ^= true;
+                indication_request_counter += m_estc_service.characteristic[i].is_indication_en ? 1 : -1;
+
+                if (indication_request_counter == 0)
+                {
+                    app_timer_stop(timer_Idn_id);
+                    NRF_LOG_INFO("Indication timer stopped");
+                }
+                else if (indication_request_counter == 1 && m_estc_service.characteristic[i].is_indication_en)
+                {
+                    app_timer_start(timer_Idn_id, APP_TIMER_TICKS(INDICATION_UPDATE_TIME), NULL);
+                    NRF_LOG_INFO("Indication timer started");
+                }
+                return;
+            }
         }
     }
+}
 
-    if ((p_evt_write->handle == m_estc_service.characteristic_Idn_handle.cccd_handle) && (p_evt_write->len == 2))
+static void estc_ble_on_disconnect(ble_evt_t const * p_ble_evt)
+{
+    app_timer_stop_all();
+    NRF_LOG_INFO("All timer stopped");
+
+    for (size_t i = 0; i < m_estc_service.char_qty; ++i)
     {
-        if (ble_srv_is_indication_enabled(p_evt_write->data) == true)
-        {
-            app_timer_start(timer_Idn_id, APP_TIMER_TICKS(INDICATION_UPDATE_TIME), NULL);
-            NRF_LOG_INFO("Indication timer started");
-        }
-        else
-        {
-            app_timer_stop(timer_Idn_id);
-            NRF_LOG_INFO("Indication timer stoped");
-        }
+        m_estc_service.characteristic[i].is_notification_en = false;
+        m_estc_service.characteristic[i].is_indication_en = false;
     }
 }
 
@@ -271,8 +309,6 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
             NRF_LOG_INFO("ADV Event: Start fast advertising");
-            //err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
-            //APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_ADV_EVT_IDLE:
@@ -298,25 +334,36 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     {
         case BLE_GATTS_EVT_WRITE:
             estc_ble_on_write_evt(p_ble_evt);
+            /*NRF_LOG_INFO("On_write write: handle %d type %d len %d data %d",
+                          p_ble_evt->evt.gatts_evt.params.write.handle,
+                          p_ble_evt->evt.gatts_evt.params.write.op,
+                          p_ble_evt->evt.gatts_evt.params.write.len,
+                          p_ble_evt->evt.gatts_evt.params.write.data);
+
+            NRF_LOG_INFO("On_write handles: value handle %d user_desc_handle %d sccd_handle %d cccd_handle %d",
+                         m_estc_service.characteristic[1].c_handle.value_handle,
+                         m_estc_service.characteristic[1].c_handle.user_desc_handle,
+                         m_estc_service.characteristic[1].c_handle.sccd_handle,
+                         m_estc_service.characteristic[1].c_handle.cccd_handle);*/
+
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
+            estc_ble_on_disconnect(p_ble_evt);
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
             NRF_LOG_INFO("Disconnected (conn_handle: %d)", p_ble_evt->evt.gap_evt.conn_handle);
-            // LED indication will be changed when advertising starts.
             break;
 
         case BLE_GAP_EVT_CONNECTED:
             NRF_LOG_INFO("Connected (conn_handle: %d)", p_ble_evt->evt.gap_evt.conn_handle);
-            //err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
-            APP_ERROR_CHECK(err_code);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
             APP_ERROR_CHECK(err_code);
+            app_timer_start(timer_Upd_id, APP_TIMER_TICKS(VALUE_UPDATE_TIME), NULL);
+            NRF_LOG_INFO("Update value timer start");
             break;
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
-        {
             NRF_LOG_DEBUG("PHY update request (conn_handle: %d)", p_ble_evt->evt.gap_evt.conn_handle);
             ble_gap_phys_t const phys =
             {
@@ -325,7 +372,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             };
             err_code = sd_ble_gap_phy_update(p_ble_evt->evt.gap_evt.conn_handle, &phys);
             APP_ERROR_CHECK(err_code);
-        } break;
+            break;
 
         case BLE_GATTC_EVT_TIMEOUT:
             // Disconnect on GATT Client timeout event.
@@ -348,6 +395,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             //NRF_LOG_DEBUG("Unknown ble_evt %d", p_ble_evt->header.evt_id);
             break;
     }
+    m_estc_service.connection_handle = m_conn_handle;
 }
 
 
@@ -377,34 +425,6 @@ void ble_stack_init(void)
     NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
     NRF_LOG_INFO("ble_stack_init m_ble_observer %d", m_ble_observer.handler);
 }
-
-/**@brief Function for handling events from the BSP module.
- *
- * @param[in]   event   Event generated when button is pressed.
- */
-void bsp_event_handler(bsp_event_t event)
-{
-    ret_code_t err_code;
-
-    switch (event)
-    {
-        case BSP_EVENT_SLEEP:
-            //sleep_mode_enter();
-            break; // BSP_EVENT_SLEEP
-
-        case BSP_EVENT_DISCONNECT:
-            err_code = sd_ble_gap_disconnect(m_conn_handle,
-                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            if (err_code != NRF_ERROR_INVALID_STATE)
-            {
-                APP_ERROR_CHECK(err_code);
-            }
-            break; // BSP_EVENT_DISCONNECT
-        default:
-            break;
-    }
-}
-
 
 /**@brief Function for initializing the Advertising functionality.
  */
@@ -459,33 +479,6 @@ void advertising_init(void)
 
     ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 }
-
-
-/**@brief Function for initializing buttons and leds.
- *
- * @param[out] p_erase_bonds  Will be true if the clear bonding button was pressed to wake the application up.
- */
-void buttons_leds_init(void)
-{
-    ret_code_t err_code;
-
-    err_code = bsp_init(BSP_INIT_LEDS /*| BSP_INIT_BUTTONS*/, bsp_event_handler);
-    APP_ERROR_CHECK(err_code);
-
-    //err_code = bsp_btn_ble_init(NULL, NULL);
-    APP_ERROR_CHECK(err_code);
-}
-
-
-/**@brief Function for initializing the nrf log module.
- */
-/*static void log_init(void)
-{
-    ret_code_t err_code = NRF_LOG_INIT(NULL);
-    APP_ERROR_CHECK(err_code);
-
-    NRF_LOG_DEFAULT_BACKENDS_INIT();
-}*/
 
 
 /**@brief Function for initializing power management.

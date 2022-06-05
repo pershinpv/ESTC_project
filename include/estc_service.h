@@ -32,6 +32,7 @@
 #define ESTC_SERVICE_H__
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "ble.h"
 #include "sdk_errors.h"
@@ -43,29 +44,43 @@
 #define ESTC_SERVICE_UUID 0x5601
 
  // TODO: 3. Pick a characteristic UUID and define it:
-#define ESTC_GATT_CHAR_1_UUID 0xABC1
-#define ESTC_GATT_CHAR_2_UUID 0xABC2
-#define ESTC_GATT_CHAR_Ntf_UUID 0xABC3
-#define ESTC_GATT_CHAR_Ind_UUID 0xABC4
 
-typedef struct
+#define ESTC_CHAR_Color_RGB_UUID 0xABCD
+#define ESTC_CHAR_Color_HSV_UUID 0xABCE
+
+#define ESTC_SRV1_CHAR_Quantity  3
+
+typedef struct ble_estc_characteristic_s
+{
+    ble_gatt_char_props_t c_props;
+    ble_gatts_char_handles_t c_handle;
+    uint16_t c_uuid;
+    uint16_t c_len;
+    uint8_t *c_default_value;
+    char *c_name;
+    bool is_notification_en;
+    bool is_indication_en;
+} ble_estc_characteristic_t;
+
+typedef struct ble_estc_service_s
 {
     uint16_t service_handle;
     uint16_t connection_handle;
+    uint8_t char_qty;
 
     // TODO: 6.3. Add handles for characterstic (type: ble_gatts_char_handles_t)
-    ble_gatts_char_handles_t characteristic_1_handle;
-    ble_gatts_char_handles_t characteristic_2_handle;
-    ble_gatts_char_handles_t characteristic_Ntf_handle;
-    ble_gatts_char_handles_t characteristic_Idn_handle;
-
+    ble_estc_characteristic_t characteristic[ESTC_SRV1_CHAR_Quantity];
 } ble_estc_service_t;
+
+
 
 ret_code_t estc_ble_service_init(ble_estc_service_t *service);
 
 void estc_ble_service_on_ble_event(const ble_evt_t *ble_evt, void *ctx);
 
-void estc_notify_characteristic_value(ble_estc_service_t const *service);
-void estc_indicate_characteristic_value(ble_estc_service_t const *service);
+void estc_ble_characteristic_value_notify(ble_estc_service_t const *service);
+void estc_ble_characteristic_value_indicate(ble_estc_service_t const *service);
+void estc_ble_characteristic_value_update(ble_estc_service_t const *service);
+void estc_ble_characteristic_value_incoming_update(uint8_t char_num, uint8_t* data);
 
 #endif /* ESTC_SERVICE_H__ */

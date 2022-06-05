@@ -1,7 +1,8 @@
 #include <stdint.h>
 #include "log.h"
-#include "nrfx_nvmc.h"
 #include "nvmc.h"
+//#include "nrfx_nvmc.h"
+#include "estc_fstorage.h"
 #include "cli_cmd.h"
 #include "cli_usb.h"
 

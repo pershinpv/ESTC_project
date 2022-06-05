@@ -13,10 +13,12 @@
 #include "cli_cmd.h"
 #include "estc_ble.h"
 #include "estc_service.h"
+#include "estc_fstorage.h"
 
 #include "nrfx_pwm.h"
 #include "nrf_drv_pwm.h"
-#include "nrfx_nvmc.h"
+//#include "nrfx_nvmc.h"
+#include "estc_fstorage.h"
 
 #include "nrfx_rtc.h"
 
@@ -46,7 +48,8 @@ int main(void)
     led_pins_init();
     button_pins_init();
     nrfx_systick_init();
-    nvmc_flash_init();
+    estc_fstorage_init();
+    //nvmc_flash_init();
     rtc_button_timer_init(&rtc);
     deviceID_calc(deviceID, LEDS_NUMBER, DEVICE_ID);
 
@@ -57,7 +60,6 @@ int main(void)
     color_rgb_led_pwm_init(&rgb_led_pwm);
 
     timers_init();
-    //buttons_leds_init();
     //power_management_init();
     ble_stack_init();
     gap_params_init();

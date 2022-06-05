@@ -125,7 +125,7 @@ void color_value_get_rgb(rgb_t *rgb_vals)
 {
     rgb_vals->r = color_rgb.r;
     rgb_vals->g = color_rgb.g;
-    rgb_vals->b =color_rgb.b;
+    rgb_vals->b = color_rgb.b;
     rgb_vals->crc = color_rgb.crc;
 }
 
@@ -271,7 +271,7 @@ void color_set_work_mode(hsv_change_mode_t work_mode)
             case HSV_CHANGE_NO:
                 ctrl_led_seq.values.p_common = ctrl_led_seq_vals_off;
                 ctrl_led_seq.length = NRF_PWM_VALUES_LENGTH(ctrl_led_seq_vals_off);
-                //nvmc_write_rgb_actual_values(&color_rgb);
+                nvmc_write_rgb_actual_values(&color_rgb);
                 //nvmc_read_rgb_actual_values_for_log();
                 break;
 
